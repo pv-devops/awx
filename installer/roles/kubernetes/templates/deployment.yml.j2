@@ -547,7 +547,12 @@ spec:
   - host: {{ kubernetes_ingress_hostname }}
     http:
       paths:
-      - path: /
+{% if kubernetes_ingress_additional_paths is defined %}
+{% for kubernetes_ingress_additional_path in kubernetes_ingress_additional_paths %}
+{{ kubernetes_ingress_additional_paths | to_nice_yaml(indent=2) | indent(width=6, indentfirst=True) }}
+{% endfor %}
+{% endif %}
+      - path: {{ kubernetes_ingress_urlpath | default("/") }}
         backend:
           serviceName: {{ kubernetes_deployment_name }}-web-svc
           servicePort: 80
