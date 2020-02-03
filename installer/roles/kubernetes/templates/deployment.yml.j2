@@ -157,6 +157,8 @@ spec:
         service: django
         app: {{ kubernetes_deployment_name }}
     spec:
+      securityContext:
+        fsGroup: 65534
       serviceAccountName: awx
       terminationGracePeriodSeconds: 10
 {% if custom_venvs is defined %}
