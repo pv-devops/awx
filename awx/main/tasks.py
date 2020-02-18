@@ -52,6 +52,7 @@ import ansible_runner
 from awx import __version__ as awx_application_version
 from awx.main.constants import CLOUD_PROVIDERS, PRIVILEGE_ESCALATION_METHODS, STANDARD_INVENTORY_UPDATE_ENV, GALAXY_SERVER_FIELDS
 from awx.main.access import access_registry
+from awx.main.redact import UriCleaner
 from awx.main.models import (
     Schedule, TowerScheduleState, Instance, InstanceGroup,
     UnifiedJob, Notification,
@@ -337,9 +338,15 @@ def send_notifications(notification_list, job_id=None):
 
 @task()
 def gather_analytics():
+    from awx.conf.models import Setting
+    from rest_framework.fields import DateTimeField
     if not settings.INSIGHTS_TRACKING_STATE:
         return
-    last_time = settings.AUTOMATION_ANALYTICS_LAST_GATHER
+    last_gather = Setting.objects.filter(key='AUTOMATION_ANALYTICS_LAST_GATHER').first()
+    if last_gather:
+        last_time = DateTimeField().to_internal_value(last_gather.value)
+    else:
+        last_time = None
     gather_time = now()
     if not last_time or ((gather_time - last_time).total_seconds() > settings.AUTOMATION_ANALYTICS_GATHER_INTERVAL):
         with advisory_lock('gather_analytics_lock', wait=False) as acquired:
@@ -507,7 +514,7 @@ def awx_periodic_scheduler():
 
         invalid_license = False
         try:
-            access_registry[Job](None).check_license()
+            access_registry[Job](None).check_license(quiet=True)
         except PermissionDenied as e:
             invalid_license = e
 
@@ -1138,6 +1145,23 @@ class BaseTask(object):
             else:
                 event_data['host_name'] = ''
                 event_data['host_id'] = ''
+
+        if isinstance(self, RunProjectUpdate):
+            # it's common for Ansible's SCM modules to print
+            # error messages on failure that contain the plaintext
+            # basic auth credentials (username + password)
+            # it's also common for the nested event data itself (['res']['...'])
+            # to contain unredacted text on failure
+            # this is a _little_ expensive to filter
+            # with regex, but project updates don't have many events,
+            # so it *should* have a negligible performance impact
+            try:
+                event_data_json = json.dumps(event_data)
+                event_data_json = UriCleaner.remove_sensitive(event_data_json)
+                event_data = json.loads(event_data_json)
+            except json.JSONDecodeError:
+                pass
+
         should_write_event = False
         event_data.setdefault(self.event_data_key, self.instance.id)
         self.dispatcher.dispatch(event_data)
@@ -1989,8 +2013,9 @@ class RunProjectUpdate(BaseTask):
                     continue
                 env_key = ('ANSIBLE_GALAXY_SERVER_{}_{}'.format(server.get('id', 'unnamed'), key)).upper()
                 env[env_key] = server[key]
-        # now set the precedence of galaxy servers
-        env['ANSIBLE_GALAXY_SERVER_LIST'] = ','.join([server.get('id', 'unnamed') for server in galaxy_servers])
+        if galaxy_servers:
+            # now set the precedence of galaxy servers
+            env['ANSIBLE_GALAXY_SERVER_LIST'] = ','.join([server.get('id', 'unnamed') for server in galaxy_servers])
         return env
 
     def _build_scm_url_extra_vars(self, project_update):

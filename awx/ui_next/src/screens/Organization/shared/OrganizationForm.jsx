@@ -4,8 +4,7 @@ import { withRouter } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
-import { QuestionCircleIcon } from '@patternfly/react-icons';
-import { Tooltip, Form, FormGroup } from '@patternfly/react-core';
+import { Form, FormGroup } from '@patternfly/react-core';
 
 import { OrganizationsAPI } from '@api';
 import { ConfigContext } from '@contexts/Config';
@@ -13,13 +12,20 @@ import AnsibleSelect from '@components/AnsibleSelect';
 import ContentError from '@components/ContentError';
 import ContentLoading from '@components/ContentLoading';
 import FormRow from '@components/FormRow';
-import FormField from '@components/FormField';
+import FormField, { FormSubmitError } from '@components/FormField';
 import FormActionGroup from '@components/FormActionGroup/FormActionGroup';
 import { InstanceGroupsLookup } from '@components/Lookup/';
 import { getAddedAndRemoved } from '@util/lists';
 import { required, minMaxValue } from '@util/validators';
 
-function OrganizationForm({ organization, i18n, me, onCancel, onSubmit }) {
+function OrganizationForm({
+  organization,
+  i18n,
+  me,
+  onCancel,
+  onSubmit,
+  submitError,
+}) {
   const defaultVenv = {
     label: i18n._(t`Use Default Ansible Environment`),
     value: '/venv/ansible/',
@@ -113,21 +119,12 @@ function OrganizationForm({ organization, i18n, me, onCancel, onSubmit }) {
               id="org-max_hosts"
               name="max_hosts"
               type="number"
-              label={
-                <>
-                  {i18n._(t`Max Hosts`)}{' '}
-                  <Tooltip
-                    position="right"
-                    content={i18n._(
-                      t`The maximum number of hosts allowed to be managed by this organization.
+              label={i18n._(t`Max Hosts`)}
+              tooltip={i18n._(
+                t`The maximum number of hosts allowed to be managed by this organization.
                       Value defaults to 0 which means no limit. Refer to the Ansible
                       documentation for more details.`
-                    )}
-                  >
-                    <QuestionCircleIcon />
-                  </Tooltip>
-                </>
-              }
+              )}
               validate={minMaxValue(0, Number.MAX_SAFE_INTEGER, i18n)}
               me={me || {}}
               isDisabled={!me.is_superuser}
@@ -161,6 +158,7 @@ function OrganizationForm({ organization, i18n, me, onCancel, onSubmit }) {
               t`Select the Instance Groups for this Organization to run on.`
             )}
           />
+          <FormSubmitError error={submitError} />
           <FormActionGroup
             onCancel={handleCancel}
             onSubmit={formik.handleSubmit}
@@ -179,6 +177,7 @@ OrganizationForm.propTypes = {
   organization: PropTypes.shape(),
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
+  submitError: PropTypes.shape(),
 };
 
 OrganizationForm.defaultProps = {
@@ -188,6 +187,7 @@ OrganizationForm.defaultProps = {
     max_hosts: '0',
     custom_virtualenv: '',
   },
+  submitError: null,
 };
 
 OrganizationForm.contextTypes = {

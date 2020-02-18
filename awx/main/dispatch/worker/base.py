@@ -61,7 +61,7 @@ class AWXConsumer(ConsumerMixin):
         ])
 
     def control(self, body, message):
-        logger.warn(body)
+        logger.warn('Consumer received control message {}'.format(body))
         control = body.get('control')
         if control in ('status', 'running'):
             producer = Producer(
@@ -148,7 +148,6 @@ class BaseWorker(object):
             finally:
                 if 'uuid' in body:
                     uuid = body['uuid']
-                    logger.debug('task {} is finished'.format(uuid))
                     finished.put(uuid)
         logger.warn('worker exiting gracefully pid:{}'.format(os.getpid()))
 

@@ -9,27 +9,24 @@ import JobTemplateEdit from './JobTemplateEdit';
 jest.mock('@api');
 
 const mockJobTemplate = {
-  id: 1,
-  name: 'Foo',
-  description: 'Bar',
-  job_type: 'run',
-  inventory: 2,
-  project: 3,
-  playbook: 'Baz',
-  type: 'job_template',
-  forks: 0,
-  limit: '',
-  verbosity: '0',
-  job_slice_count: 1,
-  timeout: 0,
-  job_tags: '',
-  skip_tags: '',
-  diff_mode: false,
   allow_callbacks: false,
   allow_simultaneous: false,
-  use_fact_cache: false,
+  ask_job_type_on_launch: false,
+  description: 'Bar',
+  diff_mode: false,
+  forks: 0,
   host_config_key: '',
+  id: 1,
+  inventory: 2,
+  job_slice_count: 1,
+  job_tags: '',
+  job_type: 'run',
+  limit: '',
+  name: 'Foo',
+  playbook: 'Baz',
+  project: 3,
   scm_branch: '',
+  skip_tags: '',
   summary_fields: {
     user_capabilities: {
       edit: true,
@@ -50,6 +47,10 @@ const mockJobTemplate = {
       name: 'Boo',
     },
   },
+  timeout: 0,
+  type: 'job_template',
+  use_fact_cache: false,
+  verbosity: '0',
 };
 
 const mockRelatedCredentials = {
@@ -195,8 +196,8 @@ describe('<JobTemplateEdit />', () => {
       inventory: 1,
     };
     const labels = [
-      { id: 3, name: 'Foo', isNew: true },
-      { id: 4, name: 'Bar', isNew: true },
+      { id: 3, name: 'Foo' },
+      { id: 4, name: 'Bar' },
       { id: 5, name: 'Maple' },
       { id: 6, name: 'Tree' },
     ];
@@ -230,8 +231,7 @@ describe('<JobTemplateEdit />', () => {
     delete expected.type;
     expect(JobTemplatesAPI.update).toHaveBeenCalledWith(1, expected);
     expect(JobTemplatesAPI.disassociateLabel).toHaveBeenCalledTimes(2);
-    expect(JobTemplatesAPI.associateLabel).toHaveBeenCalledTimes(2);
-    expect(JobTemplatesAPI.generateLabel).toHaveBeenCalledTimes(2);
+    expect(JobTemplatesAPI.associateLabel).toHaveBeenCalledTimes(4);
   });
 
   test('should navigate to job template detail when cancel is clicked', async () => {

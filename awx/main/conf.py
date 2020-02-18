@@ -802,7 +802,7 @@ register(
 register(
     'AUTOMATION_ANALYTICS_LAST_GATHER',
     field_class=fields.DateTimeField,
-    label=_('Last gather date for Automation Analytics'),
+    label=_('Last gather date for Automation Analytics.'),
     allow_null=True,
     category=_('System'),
     category_slug='system'
@@ -812,7 +812,8 @@ register(
 register(
     'AUTOMATION_ANALYTICS_GATHER_INTERVAL',
     field_class=fields.IntegerField,
-    label=_('Interval (in seconds) between data gathering'),
+    label=_('Automation Analytics Gather Interval'),
+    help_text=_('Interval (in seconds) between data gathering.'),
     default=14400,	# every 4 hours
     min_value=1800,	# every 30 minutes
     category=_('System'),
@@ -844,10 +845,7 @@ def galaxy_validate(serializer, attrs):
     to save settings which obviously break all project updates.
     """
     prefix = 'PRIMARY_GALAXY_'
-
-    from awx.main.constants import GALAXY_SERVER_FIELDS
-    if not any('{}{}'.format(prefix, subfield.upper()) in attrs for subfield in GALAXY_SERVER_FIELDS):
-        return attrs
+    errors = {}
 
     def _new_value(setting_name):
         if setting_name in attrs:
@@ -856,10 +854,22 @@ def galaxy_validate(serializer, attrs):
             return ''
         return getattr(serializer.instance, setting_name, '')
 
+    if not _new_value('PRIMARY_GALAXY_URL'):
+        if _new_value('PUBLIC_GALAXY_ENABLED') is False:
+            msg = _('A URL for Primary Galaxy must be defined before disabling public Galaxy.')
+            # put error in both keys because UI has trouble with errors in toggles
+            for key in ('PRIMARY_GALAXY_URL', 'PUBLIC_GALAXY_ENABLED'):
+                errors.setdefault(key, [])
+                errors[key].append(msg)
+            raise serializers.ValidationError(errors)
+
+    from awx.main.constants import GALAXY_SERVER_FIELDS
+    if not any('{}{}'.format(prefix, subfield.upper()) in attrs for subfield in GALAXY_SERVER_FIELDS):
+        return attrs
+
     galaxy_data = {}
     for subfield in GALAXY_SERVER_FIELDS:
         galaxy_data[subfield] = _new_value('{}{}'.format(prefix, subfield.upper()))
-    errors = {}
     if not galaxy_data['url']:
         for k, v in galaxy_data.items():
             if v:

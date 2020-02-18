@@ -1,6 +1,7 @@
 import functools
+import json
 
-from six import with_metaclass
+from six import with_metaclass, PY3
 
 from .stdout import monitor, monitor_workflow
 from .utils import CustomRegistryMeta, color_enabled
@@ -539,5 +540,18 @@ class SettingsModify(CustomAction):
 
     def perform(self, key, value):
         self.page.endpoint = self.page.endpoint + 'all/'
-        resp = self.page.patch(**{key: value})
+        patch_value = value
+        if self.is_json(value):
+            patch_value = json.loads(value)
+        resp = self.page.patch(**{key: patch_value})
         return resp.from_json({'key': key, 'value': resp[key]})
+
+    def is_json(self, data):
+        err = ValueError
+        if PY3:
+            err = json.decoder.JSONDecodeError
+        try:
+            json.loads(data)
+        except err:
+            return False
+        return True

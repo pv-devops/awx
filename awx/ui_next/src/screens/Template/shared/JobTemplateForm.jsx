@@ -16,7 +16,12 @@ import ContentLoading from '@components/ContentLoading';
 import AnsibleSelect from '@components/AnsibleSelect';
 import { TagMultiSelect } from '@components/MultiSelect';
 import FormActionGroup from '@components/FormActionGroup';
-import FormField, { CheckboxField, FieldTooltip } from '@components/FormField';
+import FormField, {
+  CheckboxField,
+  FieldTooltip,
+  FormSubmitError,
+} from '@components/FormField';
+import FieldWithPrompt from '@components/FieldWithPrompt';
 import FormRow from '@components/FormRow';
 import CollapsibleSection from '@components/CollapsibleSection';
 import { required } from '@util/validators';
@@ -48,6 +53,7 @@ class JobTemplateForm extends Component {
     template: JobTemplate,
     handleCancel: PropTypes.func.isRequired,
     handleSubmit: PropTypes.func.isRequired,
+    submitError: PropTypes.shape({}),
   };
 
   static defaultProps = {
@@ -66,6 +72,7 @@ class JobTemplateForm extends Component {
       },
       isNew: true,
     },
+    submitError: null,
   };
 
   constructor(props) {
@@ -161,8 +168,9 @@ class JobTemplateForm extends Component {
       handleSubmit,
       handleBlur,
       setFieldValue,
-      i18n,
       template,
+      submitError,
+      i18n,
     } = this.props;
 
     const jobTypeOptions = [
@@ -201,6 +209,7 @@ class JobTemplateForm extends Component {
     if (contentError) {
       return <ContentError error={contentError} />;
     }
+
     const AdvancedFieldsWrapper = template.isNew ? CollapsibleSection : 'div';
     return (
       <Form autoComplete="off" onSubmit={handleSubmit}>
@@ -219,37 +228,35 @@ class JobTemplateForm extends Component {
             type="text"
             label={i18n._(t`Description`)}
           />
-          <Field
-            name="job_type"
-            validate={required(null, i18n)}
-            onBlur={handleBlur}
+          <FieldWithPrompt
+            fieldId="template-job-type"
+            isRequired
+            label={i18n._(t`Job Type`)}
+            promptId="template-ask-job-type-on-launch"
+            promptName="ask_job_type_on_launch"
+            tooltip={i18n._(t`For job templates, select run to execute
+            the playbook. Select check to only check playbook syntax,
+            test environment setup, and report problems without
+            executing the playbook.`)}
           >
-            {({ form, field }) => {
-              const isValid = !form.touched.job_type || !form.errors.job_type;
-              return (
-                <FormGroup
-                  fieldId="template-job-type"
-                  helperTextInvalid={form.errors.job_type}
-                  isRequired
-                  isValid={isValid}
-                  label={i18n._(t`Job Type`)}
-                >
-                  <FieldTooltip
-                    content={i18n._(t`For job templates, select run to execute
-                      the playbook. Select check to only check playbook syntax,
-                      test environment setup, and report problems without
-                      executing the playbook.`)}
-                  />
+            <Field
+              name="job_type"
+              validate={required(null, i18n)}
+              onBlur={handleBlur}
+            >
+              {({ form, field }) => {
+                const isValid = !form.touched.job_type || !form.errors.job_type;
+                return (
                   <AnsibleSelect
                     isValid={isValid}
                     id="template-job-type"
                     data={jobTypeOptions}
                     {...field}
                   />
-                </FormGroup>
-              );
-            }}
-          </Field>
+                );
+              }}
+            </Field>
+          </FieldWithPrompt>
           <Field
             name="inventory"
             validate={required(i18n._(t`Select a value for this field`), i18n)}
@@ -585,6 +592,7 @@ class JobTemplateForm extends Component {
             </FormRow>
           </div>
         </AdvancedFieldsWrapper>
+        <FormSubmitError error={submitError} />
         <FormActionGroup onCancel={handleCancel} onSubmit={handleSubmit} />
       </Form>
     );
@@ -604,6 +612,7 @@ const FormikApp = withFormik({
       ? summary_fields.inventory.organization_id
       : null;
     return {
+      ask_job_type_on_launch: template.ask_job_type_on_launch || false,
       name: template.name || '',
       description: template.description || '',
       job_type: template.job_type || 'run',
@@ -631,7 +640,13 @@ const FormikApp = withFormik({
       credentials: summary_fields.credentials || [],
     };
   },
-  handleSubmit: (values, { props }) => props.handleSubmit(values),
+  handleSubmit: async (values, { props, setErrors }) => {
+    try {
+      await props.handleSubmit(values);
+    } catch (errors) {
+      setErrors(errors);
+    }
+  },
 })(JobTemplateForm);
 
 export { JobTemplateForm as _JobTemplateForm };

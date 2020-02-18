@@ -3,7 +3,7 @@ import { Link, useHistory, useParams, useLocation } from 'react-router-dom';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
 import { Host } from '@types';
-import { Button } from '@patternfly/react-core';
+import { Button, Switch } from '@patternfly/react-core';
 import { CardBody, CardActionsRow } from '@components/Card';
 import AlertModal from '@components/AlertModal';
 import ErrorDetail from '@components/ErrorDetail';
@@ -11,7 +11,6 @@ import { DetailList, Detail, UserDateDetail } from '@components/DetailList';
 import { VariablesDetail } from '@components/CodeMirrorInput';
 import { Sparkline } from '@components/Sparkline';
 import DeleteButton from '@components/DeleteButton';
-import Switch from '@components/Switch';
 import { HostsAPI } from '@api';
 
 function HostDetail({ host, i18n, onUpdateHost }) {
@@ -39,6 +38,8 @@ function HostDetail({ host, i18n, onUpdateHost }) {
   const [deletionError, setDeletionError] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
   const [toggleError, setToggleError] = useState(false);
+
+  const recentPlaybookJobs = recent_jobs.map(job => ({ ...job, type: 'job' }));
 
   const handleHostToggle = async () => {
     setToggleLoading(true);
@@ -107,7 +108,7 @@ function HostDetail({ host, i18n, onUpdateHost }) {
         <Detail label={i18n._(t`Name`)} value={name} />
         <Detail
           css="display: flex; flex: 1;"
-          value={<Sparkline jobs={recent_jobs} />}
+          value={<Sparkline jobs={recentPlaybookJobs} />}
           label={i18n._(t`Activity`)}
         />
         <Detail label={i18n._(t`Description`)} value={description} />

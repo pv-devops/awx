@@ -623,6 +623,11 @@ class UnifiedJob(PolymorphicModel, PasswordFieldsModel, CommonModelNameNotUnique
         editable=False,
         help_text=_("The date and time the job was queued for starting."),
     )
+    dependencies_processed = models.BooleanField(
+        default=False,
+        editable=False,
+        help_text=_("If True, the task manager has already processed potential dependencies for this job.")
+    )
     finished = models.DateTimeField(
         null=True,
         default=None,
@@ -1009,6 +1014,8 @@ class UnifiedJob(PolymorphicModel, PasswordFieldsModel, CommonModelNameNotUnique
                 dir=settings.JOBOUTPUT_ROOT,
                 encoding='utf-8'
             )
+            from awx.main.tasks import purge_old_stdout_files  # circular import
+            purge_old_stdout_files.apply_async()
 
         # Before the addition of event-based stdout, older versions of
         # awx stored stdout as raw text blobs in a certain database column

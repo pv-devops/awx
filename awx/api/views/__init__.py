@@ -81,7 +81,8 @@ from awx.main.utils import (
     getattrd,
     get_pk_from_dict,
     schedule_task_manager,
-    ignore_inventory_computed_fields
+    ignore_inventory_computed_fields,
+    set_environ
 )
 from awx.main.utils.encryption import encrypt_value
 from awx.main.utils.filters import SmartFilter
@@ -1606,7 +1607,8 @@ class HostInsights(GenericAPIView):
 
     def _call_insights_api(self, url, session, headers):
         try:
-            res = session.get(url, headers=headers, timeout=120)
+            with set_environ(**settings.AWX_TASK_ENV):
+                res = session.get(url, headers=headers, timeout=120)
         except requests.exceptions.SSLError:
             raise BadGateway(_('SSLError while trying to connect to {}').format(url))
         except requests.exceptions.Timeout:
@@ -2145,7 +2147,7 @@ class InventorySourceHostsList(HostRelatedSearchMixin, SubListDestroyAPIView):
                     host__inventory_sources=inv_source
                 ).delete()
                 r = super(InventorySourceHostsList, self).perform_list_destroy(instance_list)
-        update_inventory_computed_fields.delay(inv_source.inventory_id, True)
+        update_inventory_computed_fields.delay(inv_source.inventory_id)
         return r
 
 
@@ -2172,7 +2174,7 @@ class InventorySourceGroupsList(SubListDestroyAPIView):
                     group__inventory_sources=inv_source
                 ).delete()
                 r = super(InventorySourceGroupsList, self).perform_list_destroy(instance_list)
-        update_inventory_computed_fields.delay(inv_source.inventory_id, True)
+        update_inventory_computed_fields.delay(inv_source.inventory_id)
         return r
 
 
@@ -3263,7 +3265,7 @@ class WorkflowJobRelaunch(GenericAPIView):
             jt = obj.job_template
             if not jt:
                 raise ParseError(_('Cannot relaunch slice workflow job orphaned from job template.'))
-            elif not jt.inventory or min(jt.inventory.hosts.count(), jt.job_slice_count) != obj.workflow_nodes.count():
+            elif not obj.inventory or min(obj.inventory.hosts.count(), jt.job_slice_count) != obj.workflow_nodes.count():
                 raise ParseError(_('Cannot relaunch sliced workflow job after slice count has changed.'))
         new_workflow_job = obj.create_relaunch_workflow_job()
         new_workflow_job.signal_start()

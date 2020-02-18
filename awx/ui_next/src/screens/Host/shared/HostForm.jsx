@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { func, shape } from 'prop-types';
 
-import { withRouter } from 'react-router-dom';
+import { useRouteMatch } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
@@ -9,16 +9,18 @@ import { t } from '@lingui/macro';
 import { Form } from '@patternfly/react-core';
 
 import FormRow from '@components/FormRow';
-import FormField from '@components/FormField';
+import FormField, { FormSubmitError } from '@components/FormField';
 import FormActionGroup from '@components/FormActionGroup/FormActionGroup';
 import { VariablesField } from '@components/CodeMirrorInput';
 import { required } from '@util/validators';
 import { InventoryLookup } from '@components/Lookup';
 
-function HostForm({ handleSubmit, handleCancel, host, i18n }) {
+function HostForm({ handleSubmit, handleCancel, host, submitError, i18n }) {
   const [inventory, setInventory] = useState(
     host ? host.summary_fields.inventory : ''
   );
+
+  const hostAddMatch = useRouteMatch('/hosts/add');
 
   return (
     <Formik
@@ -47,7 +49,7 @@ function HostForm({ handleSubmit, handleCancel, host, i18n }) {
               type="text"
               label={i18n._(t`Description`)}
             />
-            {!host.id && (
+            {hostAddMatch && (
               <Field
                 name="inventory"
                 validate={required(
@@ -83,6 +85,7 @@ function HostForm({ handleSubmit, handleCancel, host, i18n }) {
               label={i18n._(t`Variables`)}
             />
           </FormRow>
+          <FormSubmitError error={submitError} />
           <FormActionGroup
             onCancel={handleCancel}
             onSubmit={formik.handleSubmit}
@@ -97,6 +100,7 @@ HostForm.propTypes = {
   handleSubmit: func.isRequired,
   handleCancel: func.isRequired,
   host: shape({}),
+  submitError: shape({}),
 };
 
 HostForm.defaultProps = {
@@ -109,7 +113,8 @@ HostForm.defaultProps = {
       inventory: null,
     },
   },
+  submitError: null,
 };
 
 export { HostForm as _HostForm };
-export default withI18n()(withRouter(HostForm));
+export default withI18n()(HostForm);
