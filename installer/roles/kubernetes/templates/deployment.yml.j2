@@ -40,6 +40,8 @@ spec:
         service: django
         app: {{ kubernetes_deployment_name }}
     spec:
+      securityContext:
+        fsGroup: 65534
       serviceAccountName: awx
       terminationGracePeriodSeconds: 10
 {% if custom_venvs is defined %}
@@ -356,7 +358,10 @@ spec:
   - host: {{ kubernetes_ingress_hostname }}
     http:
       paths:
-      - path: /
+{% if kubernetes_ingress_additional_paths is defined %}
+{{ kubernetes_ingress_additional_paths | to_nice_yaml(indent=2) | indent(width=6, indentfirst=True) }}
+{% endif %}
+      - path: {{ kubernetes_ingress_urlpath | default("/") }}
         backend:
           serviceName: {{ kubernetes_deployment_name }}-web-svc
           servicePort: 80
