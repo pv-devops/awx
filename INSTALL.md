@@ -41,6 +41,8 @@ This document provides a guide for installing AWX.
     + [Run the installer](#run-the-installer-2)
     + [Post-install](#post-install-2)
     + [Accessing AWX](#accessing-awx-2)
+- [Installing the AWX CLI](#installing-the-awx-cli)
+  * [Building the CLI Documentation](#building-the-cli-documentation)
 
     
 ## Getting started
@@ -128,7 +130,6 @@ For convenience, you can create a file called `vars.yml`:
 ```
 admin_password: 'adminpass'
 pg_password: 'pgpass'
-rabbitmq_password: 'rabbitpass'
 secret_key: 'mysupersecret'
 ```
 
@@ -476,7 +477,7 @@ Before starting the install process, review the [inventory](./installer/inventor
 
 *ssl_certificate*
 
-> Optionally, provide the path to a file that contains a certificate and its private key.
+> Optionally, provide the path to a file that contains a certificate and its private key. This needs to be a .pem-file
 
 *docker_compose_dir*
 
@@ -555,16 +556,7 @@ $ ansible-playbook -i inventory -e docker_registry_password=password install.yml
 
 ### Post-install
 
-After the playbook run completes, Docker will report up to 5 running containers. If you chose to use an existing PostgresSQL database, then it will report 4. You can view the running containers using the `docker ps` command, as follows:
-
-```bash
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                                NAMES
-e240ed8209cd        awx_task:1.0.0.8    "/tini -- /bin/sh ..."   2 minutes ago       Up About a minute   8052/tcp                             awx_task
-1cfd02601690        awx_web:1.0.0.8     "/tini -- /bin/sh ..."   2 minutes ago       Up About a minute   0.0.0.0:443->8052/tcp                 awx_web
-55a552142bcd        memcached:alpine    "docker-entrypoint..."   2 minutes ago       Up 2 minutes        11211/tcp                            memcached
-84011c072aad        rabbitmq:3          "docker-entrypoint..."   2 minutes ago       Up 2 minutes        4369/tcp, 5671-5672/tcp, 25672/tcp   rabbitmq
-97e196120ab3        postgres:9.6        "docker-entrypoint..."   2 minutes ago       Up 2 minutes        5432/tcp                             postgres
-```
+After the playbook run completes, Docker starts a series of containers that provide the services that make up AWX.  You can view the running containers using the `docker ps` command.
 
 If you're deploying using Docker Compose, container names will be prefixed by the name of the folder where the docker-compose.yml file is created (by default, `awx`).
 
@@ -630,3 +622,34 @@ Added instance awx to tower
 The AWX web server is accessible on the deployment host, using the *host_port* value set in the *inventory* file. The default URL is [http://localhost](http://localhost).
 
 You will prompted with a login dialog. The default administrator username is `admin`, and the password is `password`.
+
+
+# Installing the AWX CLI
+
+`awx` is the official command-line client for AWX.  It:
+
+* Uses naming and structure consistent with the AWX HTTP API
+* Provides consistent output formats with optional machine-parsable formats
+* To the extent possible, auto-detects API versions, available endpoints, and
+  feature support across multiple versions of AWX.
+
+Potential uses include:
+
+* Configuring and launching jobs/playbooks
+* Checking on the status and output of job runs
+* Managing objects like organizations, users, teams, etc...
+
+The preferred way to install the AWX CLI is through pip directly from GitHub:
+
+    pip install "https://github.com/ansible/awx/archive/$VERSION.tar.gz#egg=awxkit&subdirectory=awxkit"
+    awx --help
+
+...where ``$VERSION`` is the version of AWX you're running.  To see a list of all available releases, visit: https://github.com/ansible/awx/releases
+
+## Building the CLI Documentation
+
+To build the docs, spin up a real AWX server, `pip install sphinx sphinxcontrib-autoprogram`, and run:
+
+    ~ TOWER_HOST=https://awx.example.org TOWER_USERNAME=example TOWER_PASSWORD=secret make clean html
+    ~ cd build/html/ && python -m http.server
+    Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ..

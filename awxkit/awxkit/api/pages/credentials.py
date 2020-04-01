@@ -1,6 +1,6 @@
 import logging
 
-from six.moves import http_client as http
+import http.client as http
 
 import awxkit.exceptions as exc
 from awxkit.api.mixins import DSAdapter, HasCopy, HasCreate
@@ -19,10 +19,7 @@ from awxkit.utils import (
 from . import base, page
 from .page import exception_from_status_code
 
-try:
-    from urllib.parse import urljoin
-except ImportError:
-    from urlparse import urljoin
+from urllib.parse import urljoin
 
 
 log = logging.getLogger(__name__)
@@ -182,7 +179,8 @@ class CredentialType(HasCreate, base.Base):
         response = self.connection.post(urljoin(str(self.url), 'test/'), data)
         exception = exception_from_status_code(response.status_code)
         exc_str = "%s (%s) received" % (
-                http.responses[response.status_code], response.status_code)
+            http.responses[response.status_code], response.status_code
+        )
         if exception:
             raise exception(exc_str, response.json())
         elif response.status_code == http.FORBIDDEN:
@@ -328,7 +326,8 @@ class Credential(HasCopy, HasCreate, base.Base):
         response = self.connection.post(urljoin(str(self.url), 'test/'), data)
         exception = exception_from_status_code(response.status_code)
         exc_str = "%s (%s) received" % (
-                http.responses[response.status_code], response.status_code)
+            http.responses[response.status_code], response.status_code
+        )
         if exception:
             raise exception(exc_str, response.json())
         elif response.status_code == http.FORBIDDEN:
@@ -367,3 +366,11 @@ page.register_page([resources.credentials,
                     resources.job_extra_credentials,
                     resources.job_template_extra_credentials],
                    Credentials)
+
+
+class CredentialCopy(base.Base):
+
+    pass
+
+
+page.register_page(resources.credential_copy, CredentialCopy)

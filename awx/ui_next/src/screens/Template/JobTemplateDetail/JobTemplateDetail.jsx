@@ -22,6 +22,7 @@ import { DetailList, Detail, UserDateDetail } from '@components/DetailList';
 import DeleteButton from '@components/DeleteButton';
 import ErrorDetail from '@components/ErrorDetail';
 import LaunchButton from '@components/LaunchButton';
+import { VariablesDetail } from '@components/CodeMirrorInput';
 import { JobTemplatesAPI } from '@api';
 
 const MissingDetail = styled(Detail)`
@@ -38,6 +39,7 @@ function JobTemplateDetail({ i18n, template }) {
     created,
     description,
     diff_mode,
+    extra_vars,
     forks,
     host_config_key,
     job_slice_count,
@@ -125,7 +127,7 @@ function JobTemplateDetail({ i18n, template }) {
       )}
       {use_fact_cache && (
         <TextListItem component={TextListItemVariants.li}>
-          {i18n._(t`Use Fact Cache`)}
+          {i18n._(t`Use Fact Storage`)}
         </TextListItem>
       )}
     </TextList>
@@ -166,6 +168,20 @@ function JobTemplateDetail({ i18n, template }) {
         <Detail label={i18n._(t`Name`)} value={name} dataCy="jt-detail-name" />
         <Detail label={i18n._(t`Description`)} value={description} />
         <Detail label={i18n._(t`Job Type`)} value={job_type} />
+        {summary_fields.organization ? (
+          <Detail
+            label={i18n._(t`Organization`)}
+            value={
+              <Link
+                to={`/organizations/${summary_fields.organization.id}/details`}
+              >
+                {summary_fields.organization.name}
+              </Link>
+            }
+          />
+        ) : (
+          renderMissingDataDetail(i18n._(t`Project`))
+        )}
         {summary_fields.inventory ? (
           <Detail
             label={i18n._(t`Inventory`)}
@@ -302,6 +318,11 @@ function JobTemplateDetail({ i18n, template }) {
             }
           />
         )}
+        <VariablesDetail
+          value={extra_vars}
+          rows={4}
+          label={i18n._(t`Variables`)}
+        />
       </DetailList>
       <CardActionsRow>
         {summary_fields.user_capabilities &&
@@ -338,7 +359,7 @@ function JobTemplateDetail({ i18n, template }) {
       {deletionError && (
         <AlertModal
           isOpen={deletionError}
-          variant="danger"
+          variant="error"
           title={i18n._(t`Error!`)}
           onClose={() => setDeletionError(null)}
         >

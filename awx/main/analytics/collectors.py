@@ -31,7 +31,7 @@ data _since_ the last report date - i.e., new data in the last 24 hours)
 '''
 
 
-@register('config', '1.0')
+@register('config', '1.1')
 def config(since):
     license_info = get_license(show_key=False)
     install_type = 'traditional'
@@ -53,6 +53,7 @@ def config(since):
         'ansible_version': get_ansible_version(),
         'license_type': license_info.get('license_type', 'UNLICENSED'),
         'free_instances': license_info.get('free_instances', 0),
+        'total_licensed_instances': license_info.get('instance_count', 0),
         'license_expiry': license_info.get('time_remaining', 0),
         'pendo_tracking': settings.PENDO_TRACKING_STATE,
         'authentication_backends': settings.AUTHENTICATION_BACKENDS,
@@ -121,7 +122,7 @@ def cred_type_counts(since):
     return counts
     
     
-@register('inventory_counts', '1.0')
+@register('inventory_counts', '1.1')
 def inventory_counts(since):
     counts = {}
     for inv in models.Inventory.objects.filter(kind='').annotate(num_sources=Count('inventory_sources', distinct=True), 
@@ -135,8 +136,8 @@ def inventory_counts(since):
     for smart_inv in models.Inventory.objects.filter(kind='smart'):
         counts[smart_inv.id] = {'name': smart_inv.name,
                                 'kind': smart_inv.kind,
-                                'num_hosts': smart_inv.hosts.count(),
-                                'num_sources': smart_inv.inventory_sources.count()
+                                'hosts': smart_inv.hosts.count(),
+                                'sources': smart_inv.inventory_sources.count()
                                 }
     return counts
 
@@ -256,7 +257,7 @@ def copy_tables(since, full_path):
     unified_job_query = '''COPY (SELECT main_unifiedjob.id,
                                  main_unifiedjob.polymorphic_ctype_id,
                                  django_content_type.model,
-                                 main_project.organization_id,
+                                 main_unifiedjob.organization_id,
                                  main_organization.name as organization_name,
                                  main_unifiedjob.created,  
                                  main_unifiedjob.name,  
@@ -274,10 +275,8 @@ def copy_tables(since, full_path):
                                  main_unifiedjob.job_explanation, 
                                  main_unifiedjob.instance_group_id
                                  FROM main_unifiedjob
-                                 JOIN main_job ON main_unifiedjob.id = main_job.unifiedjob_ptr_id
                                  JOIN django_content_type ON main_unifiedjob.polymorphic_ctype_id = django_content_type.id
-                                 JOIN main_project ON main_project.unifiedjobtemplate_ptr_id = main_job.project_id
-                                 JOIN main_organization ON main_organization.id = main_project.organization_id
+                                 JOIN main_organization ON main_organization.id = main_unifiedjob.organization_id
                                  WHERE main_unifiedjob.created > {} 
                                  AND main_unifiedjob.launch_type != 'sync'
                                  ORDER BY main_unifiedjob.id ASC) TO STDOUT WITH CSV HEADER'''.format(since.strftime("'%Y-%m-%d %H:%M:%S'"))    

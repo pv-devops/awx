@@ -5,10 +5,12 @@
 import inspect
 import logging
 import time
+import uuid
 import urllib.parse
 
 # Django
 from django.conf import settings
+from django.core.cache import cache
 from django.db import connection
 from django.db.models.fields import FieldDoesNotExist
 from django.db.models.fields.related import OneToOneRel
@@ -192,7 +194,7 @@ class APIView(views.APIView):
                 response.data['detail'] += ' To establish a login session, visit /api/login/.'
                 logger.info(status_msg)
             else:
-                logger.warn(status_msg)
+                logger.warning(status_msg)
         response = super(APIView, self).finalize_response(request, response, *args, **kwargs)
         time_started = getattr(self, 'time_started', None)
         response['X-API-Node'] = settings.CLUSTER_HOST_ID
@@ -547,6 +549,15 @@ class SubListCreateAPIView(SubListAPIView, ListCreateAPIView):
             'parent_key': getattr(self, 'parent_key', None),
         })
         return d
+
+    def get_queryset(self):
+        if hasattr(self, 'parent_key'):
+            # Prefer this filtering because ForeignKey allows us more assumptions
+            parent = self.get_parent_object()
+            self.check_parent_access(parent)
+            qs = self.request.user.get_queryset(self.model)
+            return qs.filter(**{self.parent_key: parent})
+        return super(SubListCreateAPIView, self).get_queryset()
 
     def create(self, request, *args, **kwargs):
         # If the object ID was not specified, it probably doesn't exist in the
@@ -964,6 +975,11 @@ class CopyAPIView(GenericAPIView):
         if hasattr(new_obj, 'admin_role') and request.user not in new_obj.admin_role.members.all():
             new_obj.admin_role.members.add(request.user)
         if sub_objs:
+            # store the copied object dict into memcached, because it's
+            # often too large for postgres' notification bus
+            # (which has a default maximum message size of 8k)
+            key = 'deep-copy-{}'.format(str(uuid.uuid4()))
+            cache.set(key, sub_objs, timeout=3600)
             permission_check_func = None
             if hasattr(type(self), 'deep_copy_permission_check_func'):
                 permission_check_func = (
@@ -971,7 +987,7 @@ class CopyAPIView(GenericAPIView):
                 )
             trigger_delayed_deep_copy(
                 self.model.__module__, self.model.__name__,
-                obj.pk, new_obj.pk, request.user.pk, sub_objs,
+                obj.pk, new_obj.pk, request.user.pk, key,
                 permission_check_func=permission_check_func
             )
         serializer = self._get_copy_return_serializer(new_obj)

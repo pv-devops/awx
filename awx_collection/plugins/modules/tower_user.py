@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: utf-8 -*-
 
-# (c) 2017, Wayne Witzel III <wayne@riotousliving.com>
+# (c) 2020, John Westcott IV <john.westcott.iv@redhat.com>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -16,55 +16,64 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 DOCUMENTATION = '''
 ---
 module: tower_user
-author: "Wayne Witzel III (@wwitzel3)"
+author: "John Westcott IV (@john-westcott-iv)"
 version_added: "2.3"
-short_description: create, update, or destroy Ansible Tower user.
+short_description: create, update, or destroy Ansible Tower users.
 description:
     - Create, update, or destroy Ansible Tower users. See
       U(https://www.ansible.com/tower) for an overview.
 options:
     username:
       description:
-        - The username of the user.
+        - Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
       required: True
       type: str
     first_name:
       description:
         - First name of the user.
+      required: False
       type: str
     last_name:
       description:
         - Last name of the user.
+      required: False
       type: str
     email:
       description:
         - Email address of the user.
-      required: True
+      required: False
       type: str
-    password:
+    is_superuser:
       description:
-        - Password of the user.
-      type: str
-    superuser:
-      description:
-        - User is a system wide administrator.
+        - Designates that this user has all permissions without explicitly assigning them.
+      required: False
       type: bool
-      default: 'no'
-    auditor:
+      default: False
+      aliases: ['superuser']
+    is_system_auditor:
       description:
         - User is a system wide auditor.
+      required: False
       type: bool
-      default: 'no'
+      default: False
+      aliases: ['auditor']
+    password:
+      description:
+        - Write-only field used to change the password.
+      required: False
+      type: str
     state:
       description:
         - Desired state of the resource.
-      default: "present"
       choices: ["present", "absent"]
+      default: "present"
       type: str
-
-requirements:
-  - ansible-tower-cli >= 3.2.0
-
+    tower_oauthtoken:
+      description:
+        - The Tower OAuth token to use.
+      required: False
+      type: str
+      version_added: "3.7"
 extends_documentation_fragment: awx.awx.auth
 '''
 
@@ -106,59 +115,67 @@ EXAMPLES = '''
     tower_config_file: "~/tower_cli.cfg"
 '''
 
-from ..module_utils.ansible_tower import TowerModule, tower_auth_config, tower_check_mode
-
-try:
-    import tower_cli
-    import tower_cli.exceptions as exc
-
-    from tower_cli.conf import settings
-except ImportError:
-    pass
+from ..module_utils.tower_api import TowerModule
 
 
 def main():
+    # Any additional arguments that are not fields of the item can be added here
     argument_spec = dict(
-        username=dict(required=True),
-        first_name=dict(),
-        last_name=dict(),
-        password=dict(no_log=True),
-        email=dict(required=True),
-        superuser=dict(type='bool', default=False),
-        auditor=dict(type='bool', default=False),
+        username=dict(required=True, type='str'),
+        first_name=dict(required=False, type='str'),
+        last_name=dict(required=False, type='str'),
+        email=dict(required=False, type='str'),
+        is_superuser=dict(required=False, type='bool', default=False, aliases=['superuser']),
+        is_system_auditor=dict(required=False, type='bool', default=False, aliases=['auditor']),
+        password=dict(required=False, type='str', no_log=True),
         state=dict(choices=['present', 'absent'], default='present'),
     )
 
+    # Create a module for ourselves
     module = TowerModule(argument_spec=argument_spec, supports_check_mode=True)
 
+    # Extract our parameters
     username = module.params.get('username')
     first_name = module.params.get('first_name')
     last_name = module.params.get('last_name')
-    password = module.params.get('password')
     email = module.params.get('email')
-    superuser = module.params.get('superuser')
-    auditor = module.params.get('auditor')
+    is_superuser = module.params.get('is_superuser')
+    is_system_auditor = module.params.get('is_system_auditor')
+    password = module.params.get('password')
     state = module.params.get('state')
 
-    json_output = {'username': username, 'state': state}
+    # Attempt to look up the related items the user specified (these will fail the module if not found)
 
-    tower_auth = tower_auth_config(module)
-    with settings.runtime_values(**tower_auth):
-        tower_check_mode(module)
-        user = tower_cli.get_resource('user')
-        try:
-            if state == 'present':
-                result = user.modify(username=username, first_name=first_name, last_name=last_name,
-                                     email=email, password=password, is_superuser=superuser,
-                                     is_system_auditor=auditor, create_on_missing=True)
-                json_output['id'] = result['id']
-            elif state == 'absent':
-                result = user.delete(username=username)
-        except (exc.ConnectionError, exc.BadRequest, exc.AuthError) as excinfo:
-            module.fail_json(msg='Failed to update the user: {0}'.format(excinfo), changed=False)
+    # Attempt to look up an existing item based on the provided data
+    existing_item = module.get_one('users', **{
+        'data': {
+            'username': username,
+        }
+    })
 
-    json_output['changed'] = result['changed']
-    module.exit_json(**json_output)
+    # Create the data that gets sent for create and update
+    new_fields = {}
+    if username:
+        new_fields['username'] = username
+    if first_name:
+        new_fields['first_name'] = first_name
+    if last_name:
+        new_fields['last_name'] = last_name
+    if email:
+        new_fields['email'] = email
+    if is_superuser:
+        new_fields['is_superuser'] = is_superuser
+    if is_system_auditor:
+        new_fields['is_system_auditor'] = is_system_auditor
+    if password:
+        new_fields['password'] = password
+
+    if state == 'absent':
+        # If the state was absent we can let the module delete it if needed, the module will handle exiting from this
+        module.delete_if_needed(existing_item)
+    elif state == 'present':
+        # If the state was present and we can let the module build or update the existing item, this will return on its own
+        module.create_or_update_if_needed(existing_item, new_fields, endpoint='users', item_type='user')
 
 
 if __name__ == '__main__':

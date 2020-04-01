@@ -111,6 +111,7 @@ from awx.api.views.organization import ( # noqa
     OrganizationUsersList,
     OrganizationAdminsList,
     OrganizationProjectsList,
+    OrganizationJobTemplatesList,
     OrganizationWorkflowJobTemplatesList,
     OrganizationTeamsList,
     OrganizationActivityStreamList,
@@ -4303,7 +4304,7 @@ class NotificationTemplateTest(GenericAPIView):
         msg = "Tower Notification Test {} {}".format(obj.id, settings.TOWER_URL_BASE)
         if obj.notification_type in ('email', 'pagerduty'):
             body = "Ansible Tower Test Notification {} {}".format(obj.id, settings.TOWER_URL_BASE)
-        elif obj.notification_type == 'webhook':
+        elif obj.notification_type in ('webhook', 'grafana'):
             body = '{{"body": "Ansible Tower Test Notification {} {}"}}'.format(obj.id, settings.TOWER_URL_BASE)
         else:
             body = {"body": "Ansible Tower Test Notification {} {}".format(obj.id, settings.TOWER_URL_BASE)}

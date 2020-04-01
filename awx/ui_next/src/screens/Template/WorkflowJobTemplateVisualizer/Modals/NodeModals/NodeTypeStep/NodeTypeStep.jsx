@@ -5,20 +5,12 @@ import { func, number, shape, string } from 'prop-types';
 import styled from 'styled-components';
 import { Formik, Field } from 'formik';
 import { Form, FormGroup, TextInput } from '@patternfly/react-core';
-import FormRow from '@components/FormRow';
+import { FormFullWidthLayout } from '@components/FormLayout';
 import AnsibleSelect from '@components/AnsibleSelect';
-import VerticalSeperator from '@components/VerticalSeparator';
 import InventorySourcesList from './InventorySourcesList';
 import JobTemplatesList from './JobTemplatesList';
 import ProjectsList from './ProjectsList';
 import WorkflowJobTemplatesList from './WorkflowJobTemplatesList';
-
-const Divider = styled.div`
-  height: 1px;
-  background-color: var(--pf-global--Color--light-300);
-  border: 0;
-  flex-shrink: 0;
-`;
 
 const TimeoutInput = styled(TextInput)`
   width: 200px;
@@ -47,9 +39,8 @@ function NodeTypeStep({
 }) {
   return (
     <>
-      <div css=" display: flex; align-items: center; margin-bottom: 20px;">
-        <b>{i18n._(t`Node Type`)}</b>
-        <VerticalSeperator />
+      <div css="display: flex; align-items: center; margin-bottom: 20px;">
+        <b css="margin-right: 24px">{i18n._(t`Node Type`)}</b>
         <div>
           <AnsibleSelect
             id="nodeResource-select"
@@ -93,7 +84,6 @@ function NodeTypeStep({
           />
         </div>
       </div>
-      <Divider component="div" />
       {nodeType === 'job_template' && (
         <JobTemplatesList
           nodeResource={nodeResource}
@@ -129,7 +119,7 @@ function NodeTypeStep({
         >
           {() => (
             <Form css="margin-top: 20px;">
-              <FormRow>
+              <FormFullWidthLayout>
                 <Field name="name">
                   {({ field, form }) => {
                     const isValid =
@@ -159,8 +149,6 @@ function NodeTypeStep({
                     );
                   }}
                 </Field>
-              </FormRow>
-              <FormRow>
                 <Field name="description">
                   {({ field }) => (
                     <FormGroup
@@ -179,8 +167,6 @@ function NodeTypeStep({
                     </FormGroup>
                   )}
                 </Field>
-              </FormRow>
-              <FormRow>
                 <FormGroup
                   label={i18n._(t`Timeout`)}
                   fieldId="approval-timeout"
@@ -246,7 +232,7 @@ function NodeTypeStep({
                     </Field>
                   </div>
                 </FormGroup>
-              </FormRow>
+              </FormFullWidthLayout>
             </Form>
           )}
         </Formik>

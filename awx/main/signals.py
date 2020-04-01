@@ -6,7 +6,6 @@ import contextlib
 import logging
 import threading
 import json
-import pkg_resources
 import sys
 
 # Django
@@ -157,17 +156,26 @@ def cleanup_detached_labels_on_deleted_parent(sender, instance, **kwargs):
 
 def save_related_job_templates(sender, instance, **kwargs):
     '''save_related_job_templates loops through all of the
-    job templates that use an Inventory or Project that have had their
+    job templates that use an Inventory that have had their
     Organization updated. This triggers the rebuilding of the RBAC hierarchy
     and ensures the proper access restrictions.
     '''
-    if sender not in (Project, Inventory):
+    if sender is not Inventory:
         raise ValueError('This signal callback is only intended for use with Project or Inventory')
+
+    update_fields = kwargs.get('update_fields', None)
+    if ((update_fields and not ('organization' in update_fields or 'organization_id' in update_fields)) or
+            kwargs.get('created', False)):
+        return
 
     if instance._prior_values_store.get('organization_id') != instance.organization_id:
         jtq = JobTemplate.objects.filter(**{sender.__name__.lower(): instance})
         for jt in jtq:
-            update_role_parentage_for_instance(jt)
+            parents_added, parents_removed = update_role_parentage_for_instance(jt)
+            if parents_added or parents_removed:
+                logger.info('Permissions on JT {} changed due to inventory {} organization change from {} to {}.'.format(
+                    jt.pk, instance.pk, instance._prior_values_store.get('organization_id'), instance.organization_id
+                ))
 
 
 def connect_computed_field_signals():
@@ -183,7 +191,6 @@ def connect_computed_field_signals():
 
 connect_computed_field_signals()
 
-post_save.connect(save_related_job_templates, sender=Project)
 post_save.connect(save_related_job_templates, sender=Inventory)
 m2m_changed.connect(rebuild_role_ancestor_list, Role.parents.through)
 m2m_changed.connect(rbac_activity_stream, Role.members.through)
@@ -585,16 +592,6 @@ def deny_orphaned_approvals(sender, instance, **kwargs):
 @receiver(post_save, sender=Session)
 def save_user_session_membership(sender, **kwargs):
     session = kwargs.get('instance', None)
-    if pkg_resources.get_distribution('channels').version >= '2':
-        # If you get into this code block, it means we upgraded channels, but
-        # didn't make the settings.SESSIONS_PER_USER feature work
-        raise RuntimeError(
-            'save_user_session_membership must be updated for channels>=2: '
-            'http://channels.readthedocs.io/en/latest/one-to-two.html#requirements'
-        )
-    if 'runworker' in sys.argv:
-        # don't track user session membership for websocket per-channel sessions
-        return
     if not session:
         return
     user_id = session.get_decoded().get(SESSION_KEY, None)

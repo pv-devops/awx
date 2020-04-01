@@ -13,7 +13,7 @@ import { VariablesInput as _VariablesInput } from '@components/CodeMirrorInput';
 import DeleteButton from '@components/DeleteButton';
 import ErrorDetail from '@components/ErrorDetail';
 import LaunchButton from '@components/LaunchButton';
-import { StatusIcon } from '@components/Sparkline';
+import StatusIcon from '@components/StatusIcon';
 import { toTitleCase } from '@util/strings';
 import { formatDateString } from '@util/dates';
 import { Job } from '@types';
@@ -164,7 +164,15 @@ function JobDetail({ job, i18n }) {
           <Detail
             label={i18n._(t`Inventory`)}
             value={
-              <Link to={`/inventory/${inventory.id}`}>{inventory.name}</Link>
+              <Link
+                to={
+                  inventory.kind === 'smart'
+                    ? `/inventories/smart_inventory/${inventory.id}`
+                    : `/inventories/inventory/${inventory.id}`
+                }
+              >
+                {inventory.name}
+              </Link>
             }
           />
         )}
@@ -275,7 +283,7 @@ function JobDetail({ job, i18n }) {
       {errorMsg && (
         <AlertModal
           isOpen={errorMsg}
-          variant="danger"
+          variant="error"
           onClose={() => setErrorMsg()}
           title={i18n._(t`Job Delete Error`)}
         >

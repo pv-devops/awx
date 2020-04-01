@@ -3,6 +3,7 @@
 
 # Python
 from io import StringIO
+import datetime
 import codecs
 import json
 import logging
@@ -35,6 +36,7 @@ from awx.main.models.base import (
     NotificationFieldsModel,
     prevent_search
 )
+from awx.main.dispatch import get_local_queuename
 from awx.main.dispatch.control import Control as ControlDispatcher
 from awx.main.registrar import activity_stream_registrar
 from awx.main.models.mixins import ResourceMixin, TaskManagerUnifiedJobMixin
@@ -101,7 +103,7 @@ class UnifiedJobTemplate(PolymorphicModel, CommonModelNameNotUnique, Notificatio
         ordering = ('name',)
         # unique_together here is intentionally commented out. Please make sure sub-classes of this model
         # contain at least this uniqueness restriction: SOFT_UNIQUE_TOGETHER = [('polymorphic_ctype', 'name')]
-        #unique_together = [('polymorphic_ctype', 'name')]
+        #unique_together = [('polymorphic_ctype', 'name', 'organization')]
 
     old_pk = models.PositiveIntegerField(
         null=True,
@@ -155,6 +157,14 @@ class UnifiedJobTemplate(PolymorphicModel, CommonModelNameNotUnique, Notificatio
         choices=ALL_STATUS_CHOICES,
         default='ok',
         editable=False,
+    )
+    organization = models.ForeignKey(
+        'Organization',
+        blank=True,
+        null=True,
+        on_delete=polymorphic.SET_NULL,
+        related_name='%(class)ss',
+        help_text=_('The organization used to determine access to this template.'),
     )
     credentials = models.ManyToManyField(
         'Credential',
@@ -699,6 +709,14 @@ class UnifiedJob(PolymorphicModel, PasswordFieldsModel, CommonModelNameNotUnique
         on_delete=polymorphic.SET_NULL,
         help_text=_('The Rampart/Instance group the job was run under'),
     )
+    organization = models.ForeignKey(
+        'Organization',
+        blank=True,
+        null=True,
+        on_delete=polymorphic.SET_NULL,
+        related_name='%(class)ss',
+        help_text=_('The organization used to determine access to this unified job.'),
+    )
     credentials = models.ManyToManyField(
         'Credential',
         related_name='%(class)ss',
@@ -1218,12 +1236,17 @@ class UnifiedJob(PolymorphicModel, PasswordFieldsModel, CommonModelNameNotUnique
                     status_data['instance_group_name'] = self.instance_group.name
                 else:
                     status_data['instance_group_name'] = None
+            elif status in ['successful', 'failed', 'canceled'] and self.finished:
+                status_data['finished'] = datetime.datetime.strftime(self.finished, "%Y-%m-%dT%H:%M:%S.%fZ")
             status_data.update(self.websocket_emit_data())
             status_data['group_name'] = 'jobs'
+            if getattr(self, 'unified_job_template_id', None):
+                status_data['unified_job_template_id'] = self.unified_job_template_id
             emit_channel_notification('jobs-status_changed', status_data)
 
             if self.spawned_by_workflow:
                 status_data['group_name'] = "workflow_events"
+                status_data['workflow_job_template_id'] = self.unified_job_template.id
                 emit_channel_notification('workflow_events-' + str(self.workflow_job_id), status_data)
         except IOError:  # includes socket errors
             logger.exception('%s failed to emit channel msg about status change', self.log_format)
@@ -1338,7 +1361,7 @@ class UnifiedJob(PolymorphicModel, PasswordFieldsModel, CommonModelNameNotUnique
             timeout = 5
             try:
                 running = self.celery_task_id in ControlDispatcher(
-                    'dispatcher', self.execution_node
+                    'dispatcher', self.controller_node or self.execution_node
                 ).running(timeout=timeout)
             except socket.timeout:
                 logger.error('could not reach dispatcher on {} within {}s'.format(
@@ -1444,7 +1467,7 @@ class UnifiedJob(PolymorphicModel, PasswordFieldsModel, CommonModelNameNotUnique
         return r
 
     def get_queue_name(self):
-        return self.controller_node or self.execution_node or settings.CELERY_DEFAULT_QUEUE
+        return self.controller_node or self.execution_node or get_local_queuename()
 
     def is_isolated(self):
         return bool(self.controller_node)

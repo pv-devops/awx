@@ -4,7 +4,7 @@ import datetime
 import logging
 from collections import defaultdict
 
-from django.db import models, DatabaseError
+from django.db import models, DatabaseError, connection
 from django.utils.dateparse import parse_datetime
 from django.utils.text import Truncator
 from django.utils.timezone import utc
@@ -356,6 +356,14 @@ class BasePlaybookEvent(CreatedModifiedModel):
                     job_id=self.job_id, uuid__in=failed
                 ).update(failed=True)
 
+                # send success/failure notifications when we've finished handling the playbook_on_stats event
+                from awx.main.tasks import handle_success_and_failure_notifications  # circular import
+
+                def _send_notifications():
+                    handle_success_and_failure_notifications.apply_async([self.job.id])
+                connection.on_commit(_send_notifications)
+
+
         for field in ('playbook', 'play', 'task', 'role'):
             value = force_text(event_data.get(field, '')).strip()
             if value != getattr(self, field):
@@ -430,6 +438,7 @@ class JobEvent(BasePlaybookEvent):
             ('job', 'parent_uuid'),
         ]
 
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
     job = models.ForeignKey(
         'Job',
         related_name='job_events',
@@ -518,6 +527,7 @@ class ProjectUpdateEvent(BasePlaybookEvent):
             ('project_update', 'end_line'),
         ]
 
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
     project_update = models.ForeignKey(
         'ProjectUpdate',
         related_name='project_update_events',
@@ -669,6 +679,7 @@ class AdHocCommandEvent(BaseCommandEvent):
     FAILED_EVENTS = [x[0] for x in EVENT_TYPES if x[2]]
     EVENT_CHOICES = [(x[0], x[1]) for x in EVENT_TYPES]
 
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
     event = models.CharField(
         max_length=100,
         choices=EVENT_CHOICES,
@@ -731,6 +742,7 @@ class InventoryUpdateEvent(BaseCommandEvent):
             ('inventory_update', 'end_line'),
         ]
 
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
     inventory_update = models.ForeignKey(
         'InventoryUpdate',
         related_name='inventory_update_events',
@@ -764,6 +776,7 @@ class SystemJobEvent(BaseCommandEvent):
             ('system_job', 'end_line'),
         ]
 
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
     system_job = models.ForeignKey(
         'SystemJob',
         related_name='system_job_events',

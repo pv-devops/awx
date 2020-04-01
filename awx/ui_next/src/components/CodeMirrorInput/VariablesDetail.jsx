@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { string, node, number } from 'prop-types';
 import { Split, SplitItem, TextListItemVariants } from '@patternfly/react-core';
 import { DetailName, DetailValue } from '@components/DetailList';
+import MultiButtonToggle from '@components/MultiButtonToggle';
 import { yamlToJson, jsonToYaml, isJson } from '@util/yaml';
 import CodeMirrorInput from './CodeMirrorInput';
-import YamlJsonToggle from './YamlJsonToggle';
 import { JSON_MODE, YAML_MODE } from './constants';
 
 function getValueAsMode(value, mode) {
@@ -21,7 +21,7 @@ function getValueAsMode(value, mode) {
   return mode === YAML_MODE ? jsonToYaml(value) : yamlToJson(value);
 }
 
-function VariablesDetail({ value, label, rows }) {
+function VariablesDetail({ value, label, rows, fullHeight }) {
   const [mode, setMode] = useState(isJson(value) ? JSON_MODE : YAML_MODE);
   const [currentValue, setCurrentValue] = useState(value || '---');
   const [error, setError] = useState(null);
@@ -50,8 +50,9 @@ function VariablesDetail({ value, label, rows }) {
             </div>
           </SplitItem>
           <SplitItem>
-            <YamlJsonToggle
-              mode={mode}
+            <MultiButtonToggle
+              buttons={[[YAML_MODE, 'YAML'], [JSON_MODE, 'JSON']]}
+              value={mode}
               onChange={newMode => {
                 try {
                   setCurrentValue(getValueAsMode(currentValue, newMode));
@@ -74,6 +75,7 @@ function VariablesDetail({ value, label, rows }) {
           value={currentValue}
           readOnly
           rows={rows}
+          fullHeight={fullHeight}
           css="margin-top: 10px"
         />
         {error && (

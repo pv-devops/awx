@@ -5,8 +5,13 @@ import {
 } from '@contexts/Workflow';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
-import { func, shape } from 'prop-types';
-import { Badge as PFBadge, Button, Tooltip } from '@patternfly/react-core';
+import { bool, func, shape } from 'prop-types';
+import {
+  Badge as PFBadge,
+  Button,
+  Title,
+  Tooltip,
+} from '@patternfly/react-core';
 import {
   BookIcon,
   CompassIcon,
@@ -15,7 +20,7 @@ import {
   TrashAltIcon,
   WrenchIcon,
 } from '@patternfly/react-icons';
-import VerticalSeparator from '@components/VerticalSeparator';
+import LaunchButton from '@components/LaunchButton';
 import styled from 'styled-components';
 
 const Badge = styled(PFBadge)`
@@ -41,25 +46,35 @@ const ActionButton = styled(Button)`
 `;
 ActionButton.displayName = 'ActionButton';
 
-function VisualizerToolbar({ i18n, onClose, onSave, template }) {
+const DOCLINK =
+  'https://docs.ansible.com/ansible-tower/latest/html/userguide/workflow_templates.html#ug-wf-editor';
+
+function VisualizerToolbar({
+  i18n,
+  onClose,
+  onSave,
+  template,
+  hasUnsavedChanges,
+}) {
   const dispatch = useContext(WorkflowDispatchContext);
 
   const { nodes, showLegend, showTools } = useContext(WorkflowStateContext);
 
   const totalNodes = nodes.reduce((n, node) => n + !node.isDeleted, 0) - 1;
+  const canLaunch =
+    template.summary_fields?.user_capabilities?.start && !hasUnsavedChanges;
 
   return (
     <div id="visualizer-toolbar">
       <div css="align-items: center; border-bottom: 1px solid grey; display: flex; height: 56px; padding: 0px 20px;">
-        <div css="display: flex;" id="visualizer-toolbar-template-name">
-          <b>{template.name}</b>
-        </div>
+        <Title size="xl" id="visualizer-toolbar-template-name">
+          {template.name}
+        </Title>
         <div css="align-items: center; display: flex; flex: 1; justify-content: flex-end">
           <div>{i18n._(t`Total Nodes`)}</div>
           <Badge id="visualizer-total-nodes-badge" isRead>
             {totalNodes}
           </Badge>
-          <VerticalSeparator />
           <Tooltip content={i18n._(t`Toggle Legend`)} position="bottom">
             <ActionButton
               id="visualizer-toggle-legend"
@@ -83,15 +98,27 @@ function VisualizerToolbar({ i18n, onClose, onSave, template }) {
             </ActionButton>
           </Tooltip>
           <ActionButton
+            aria-label={i18n._(t`Workflow Documentation`)}
             id="visualizer-documentation"
             variant="plain"
-            isDisabled
+            component="a"
+            target="_blank"
+            href={DOCLINK}
           >
             <BookIcon />
           </ActionButton>
-          <ActionButton id="visualizer-launch" variant="plain" isDisabled>
-            <RocketIcon />
-          </ActionButton>
+          <LaunchButton resource={template} aria-label={i18n._(t`Launch`)}>
+            {({ handleLaunch }) => (
+              <ActionButton
+                id="visualizer-launch"
+                variant="plain"
+                isDisabled={!canLaunch || totalNodes === 0}
+                onClick={handleLaunch}
+              >
+                <RocketIcon />
+              </ActionButton>
+            )}
+          </LaunchButton>
           <Tooltip content={i18n._(t`Delete All Nodes`)} position="bottom">
             <ActionButton
               id="visualizer-delete-all"
@@ -108,16 +135,15 @@ function VisualizerToolbar({ i18n, onClose, onSave, template }) {
               <TrashAltIcon />
             </ActionButton>
           </Tooltip>
-          <VerticalSeparator />
           <Button
             id="visualizer-save"
+            css="margin: 0 32px"
             aria-label={i18n._(t`Save`)}
             variant="primary"
             onClick={onSave}
           >
             {i18n._(t`Save`)}
           </Button>
-          <VerticalSeparator />
           <Button
             id="visualizer-close"
             aria-label={i18n._(t`Close`)}
@@ -136,6 +162,7 @@ VisualizerToolbar.propTypes = {
   onClose: func.isRequired,
   onSave: func.isRequired,
   template: shape().isRequired,
+  hasUnsavedChanges: bool.isRequired,
 };
 
 export default withI18n()(VisualizerToolbar);

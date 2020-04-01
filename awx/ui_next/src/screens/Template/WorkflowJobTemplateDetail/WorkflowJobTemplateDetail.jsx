@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
+import { WorkflowJobTemplatesAPI } from '@api';
 import {
   Chip,
   ChipGroup,
@@ -13,19 +14,18 @@ import {
   Label,
 } from '@patternfly/react-core';
 
-import { CardBody, CardActionsRow } from '@components/Card';
-import ContentLoading from '@components/ContentLoading';
-import { WorkflowJobTemplatesAPI } from '@api';
 import AlertModal from '@components/AlertModal';
-import ErrorDetail from '@components/ErrorDetail';
-import { DetailList, Detail, UserDateDetail } from '@components/DetailList';
+import { CardBody, CardActionsRow } from '@components/Card';
 import { VariablesDetail } from '@components/CodeMirrorInput';
-import LaunchButton from '@components/LaunchButton';
+import ContentLoading from '@components/ContentLoading';
 import DeleteButton from '@components/DeleteButton';
+import { DetailList, Detail, UserDateDetail } from '@components/DetailList';
+import ErrorDetail from '@components/ErrorDetail';
+import LaunchButton from '@components/LaunchButton';
+import Sparkline from '@components/Sparkline';
 import { toTitleCase } from '@util/strings';
-import { Sparkline } from '@components/Sparkline';
 
-function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
+function WorkflowJobTemplateDetail({ template, i18n, webhook_key }) {
   const {
     id,
     ask_inventory_on_launch,
@@ -39,12 +39,15 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
     related,
     webhook_credential,
   } = template;
+
   const urlOrigin = window.location.origin;
   const history = useHistory();
+
   const [deletionError, setDeletionError] = useState(null);
   const [hasContentLoading, setHasContentLoading] = useState(false);
+
   const renderOptionsField =
-    template.allow_simultaneous || template.webhook_servicee;
+    template.allow_simultaneous || template.webhook_service;
 
   const renderOptions = (
     <TextList component={TextListVariants.ul}>
@@ -55,7 +58,7 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
       )}
       {template.webhook_service && (
         <TextListItem component={TextListItemVariants.li}>
-          {i18n._(t`- Webhooks`)}
+          {i18n._(t`- Enable Webhook`)}
         </TextListItem>
       )}
     </TextList>
@@ -75,6 +78,7 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
     }
     setHasContentLoading(false);
   };
+
   const inventoryValue = (kind, inventoryId) => {
     const inventorykind = kind === 'smart' ? 'smart_inventory' : 'inventory';
 
@@ -91,6 +95,7 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
       </Link>
     );
   };
+
   const canLaunch = summary_fields?.user_capabilities?.start;
   const recentPlaybookJobs = summary_fields.recent_jobs.map(job => ({
     ...job,
@@ -104,7 +109,6 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
         <Detail label={i18n._(t`Description`)} value={description} />
         {summary_fields.recent_jobs?.length > 0 && (
           <Detail
-            css="display: flex; flex: 1;"
             value={<Sparkline jobs={recentPlaybookJobs} />}
             label={i18n._(t`Activity`)}
           />
@@ -144,7 +148,7 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
             value={`${urlOrigin}${template.related.webhook_receiver}`}
           />
         )}
-        <Detail label={i18n._(t`Webhook Key`)} value={webHookKey} />
+        <Detail label={i18n._(t`Webhook Key`)} value={webhook_key} />
         {webhook_credential && (
           <Detail
             fullWidth
@@ -223,7 +227,7 @@ function WorkflowJobTemplateDetail({ template, i18n, webHookKey }) {
       {deletionError && (
         <AlertModal
           isOpen={deletionError}
-          variant="danger"
+          variant="error"
           title={i18n._(t`Error!`)}
           onClose={() => setDeletionError(null)}
         >

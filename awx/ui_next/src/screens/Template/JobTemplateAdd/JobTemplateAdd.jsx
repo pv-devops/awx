@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Card } from '@patternfly/react-core';
+import { Card, PageSection } from '@patternfly/react-core';
 import { CardBody } from '@components/Card';
 import JobTemplateForm from '../shared/JobTemplateForm';
-import { JobTemplatesAPI } from '@api';
+import { JobTemplatesAPI, OrganizationsAPI } from '@api';
 
 function JobTemplateAdd() {
   const [formSubmitError, setFormSubmitError] = useState(null);
@@ -35,10 +35,20 @@ function JobTemplateAdd() {
     }
   }
 
-  function submitLabels(templateId, labels = [], organizationId) {
+  async function submitLabels(templateId, labels = [], formOrg) {
+    let orgId = formOrg;
+
+    if (!orgId && labels.length > 0) {
+      const {
+        data: { results },
+      } = await OrganizationsAPI.read();
+      orgId = results[0].id;
+    }
+
     const associationPromises = labels.map(label =>
-      JobTemplatesAPI.associateLabel(templateId, label, organizationId)
+      JobTemplatesAPI.associateLabel(templateId, label, orgId)
     );
+
     return Promise.all([...associationPromises]);
   }
 
@@ -61,15 +71,17 @@ function JobTemplateAdd() {
   }
 
   return (
-    <Card>
-      <CardBody>
-        <JobTemplateForm
-          handleCancel={handleCancel}
-          handleSubmit={handleSubmit}
-          submitError={formSubmitError}
-        />
-      </CardBody>
-    </Card>
+    <PageSection>
+      <Card>
+        <CardBody>
+          <JobTemplateForm
+            handleCancel={handleCancel}
+            handleSubmit={handleSubmit}
+            submitError={formSubmitError}
+          />
+        </CardBody>
+      </Card>
+    </PageSection>
   );
 }
 

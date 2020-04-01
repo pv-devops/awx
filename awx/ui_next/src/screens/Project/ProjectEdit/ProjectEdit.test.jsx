@@ -17,7 +17,7 @@ describe('<ProjectEdit />', () => {
     scm_url: 'https://foo.bar',
     scm_clean: true,
     credential: 100,
-    local_path: '',
+    local_path: 'bar',
     organization: 2,
     scm_update_on_launch: true,
     scm_update_cache_timeout: 3,
@@ -28,6 +28,10 @@ describe('<ProjectEdit />', () => {
         id: 100,
         credential_type_id: 5,
         kind: 'insights',
+      },
+      organization: {
+        id: 2,
+        name: 'Default',
       },
     },
   };

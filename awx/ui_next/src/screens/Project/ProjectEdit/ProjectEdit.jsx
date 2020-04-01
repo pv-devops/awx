@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components';
-import { Card as _Card } from '@patternfly/react-core';
+import { Card } from '@patternfly/react-core';
 import { CardBody } from '@components/Card';
 import ProjectForm from '../shared/ProjectForm';
 import { ProjectsAPI } from '@api';
-
-// TODO: we are doing this in multiple add/edit screens -- move to
-// common component?
-const Card = styled(_Card)`
-  --pf-c-card--child--PaddingLeft: 0;
-  --pf-c-card--child--PaddingRight: 0;
-`;
 
 function ProjectEdit({ project }) {
   const [formSubmitError, setFormSubmitError] = useState(null);
@@ -21,10 +13,20 @@ function ProjectEdit({ project }) {
     if (values.scm_type === 'manual') {
       values.scm_type = '';
     }
+    if (!values.credential) {
+      // Depending on the permissions of the user submitting the form,
+      // the API might throw an unexpected error if our creation request
+      // has a zero-length string as its credential field. As a work-around,
+      // normalize falsey credential fields by deleting them.
+      delete values.credential;
+    }
     try {
       const {
         data: { id },
-      } = await ProjectsAPI.update(project.id, values);
+      } = await ProjectsAPI.update(project.id, {
+        ...values,
+        organization: values.organization.id,
+      });
       history.push(`/projects/${id}/details`);
     } catch (error) {
       setFormSubmitError(error);

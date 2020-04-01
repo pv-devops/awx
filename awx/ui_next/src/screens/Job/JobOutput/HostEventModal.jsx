@@ -4,7 +4,7 @@ import CodeMirrorInput from '@components/CodeMirrorInput';
 import ContentEmpty from '@components/ContentEmpty';
 import PropTypes from 'prop-types';
 import { DetailList, Detail } from '@components/DetailList';
-import { StatusIcon } from '@components/Sparkline';
+import StatusIcon from '@components/StatusIcon';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
 import styled from 'styled-components';
@@ -97,7 +97,9 @@ const processCodeMirrorValue = value => {
 };
 
 const processStdOutValue = hostEvent => {
-  const { taskAction, res } = hostEvent.event_data;
+  const taskAction = hostEvent?.event_data?.taskAction;
+  const res = hostEvent?.event_data?.res;
+
   let stdOut;
   if (taskAction === 'debug' && res.result && res.result.stdout) {
     stdOut = res.result.stdout;
@@ -107,7 +109,7 @@ const processStdOutValue = hostEvent => {
     Array.isArray(res.results)
   ) {
     [stdOut] = res.results;
-  } else {
+  } else if (res) {
     stdOut = res.stdout;
   }
   return stdOut;
@@ -125,12 +127,13 @@ function HostEventModal({ onClose, hostEvent = {}, isOpen = false, i18n }) {
     setActiveTabKey(tabIndex);
   };
 
-  const jsonObj = processCodeMirrorValue(hostEvent.event_data.res);
-  const stdErr = processCodeMirrorValue(hostEvent.event_data.res.stderr);
+  const jsonObj = processCodeMirrorValue(hostEvent?.event_data?.res);
+  const stdErr = processCodeMirrorValue(hostEvent?.event_data?.res?.stderr);
   const stdOut = processCodeMirrorValue(processStdOutValue(hostEvent));
 
   return (
     <Modal
+      isFooterLeftAligned
       isLarge
       isOpen={isOpen}
       onClose={onClose}
@@ -166,7 +169,7 @@ function HostEventModal({ onClose, hostEvent = {}, isOpen = false, i18n }) {
             />
             <Detail
               label={i18n._(t`Command`)}
-              value={hostEvent.event_data.res.cmd}
+              value={hostEvent?.event_data?.res?.cmd}
             />
           </DetailList>
         </Tab>

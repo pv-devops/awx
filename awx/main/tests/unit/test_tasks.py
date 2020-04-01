@@ -126,10 +126,8 @@ def test_send_notifications_list(mock_notifications_filter, mock_job_get, mocker
 @pytest.mark.parametrize("key,value", [
     ('REST_API_TOKEN', 'SECRET'),
     ('SECRET_KEY', 'SECRET'),
-    ('RABBITMQ_PASS', 'SECRET'),
     ('VMWARE_PASSWORD', 'SECRET'),
     ('API_SECRET', 'SECRET'),
-    ('CALLBACK_CONNECTION', 'amqp://tower:password@localhost:5672/tower'),
     ('ANSIBLE_GALAXY_SERVER_PRIMARY_GALAXY_PASSWORD', 'SECRET'),
     ('ANSIBLE_GALAXY_SERVER_PRIMARY_GALAXY_TOKEN', 'SECRET'),
 ])
@@ -2381,3 +2379,23 @@ def test_managed_injector_redaction(injector_cls):
             if secret_field_name in template:
                 env[env_name] = 'very_secret_value'
     assert 'very_secret_value' not in str(build_safe_env(env))
+
+
+@mock.patch('logging.getLogger')
+def test_notification_job_not_finished(logging_getLogger, mocker):
+    uj = mocker.MagicMock()
+    uj.finished = False
+    logger = mocker.Mock()
+    logging_getLogger.return_value = logger
+
+    with mocker.patch('awx.main.models.UnifiedJob.objects.get', uj):
+        tasks.handle_success_and_failure_notifications(1)
+        assert logger.warn.called_with(f"Failed to even try to send notifications for job '{uj}' due to job not being in finished state.")
+
+
+def test_notification_job_finished(mocker):
+    uj = mocker.MagicMock(send_notification_templates=mocker.MagicMock(), finished=True)
+
+    with mocker.patch('awx.main.models.UnifiedJob.objects.get', mocker.MagicMock(return_value=uj)):
+        tasks.handle_success_and_failure_notifications(1)
+        uj.send_notification_templates.assert_called()

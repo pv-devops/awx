@@ -1,14 +1,9 @@
-import { DataListCell as PFDataListCell } from '@patternfly/react-core';
+import { DataListCell } from '@patternfly/react-core';
 import styled from 'styled-components';
 
-const DataListCell = styled(PFDataListCell)`
-  display: flex;
-  align-items: center;
-  padding-bottom: ${props => (props.righthalf ? '16px' : '8px')};
-  @media screen and (min-width: 768px) {
-    padding-bottom: 0;
-    justify-content: ${props => (props.lastcolumn ? 'flex-end' : 'inherit')};
-  }
+DataListCell.displayName = 'PFDataListCell';
+// Once https://github.com/patternfly/patternfly-react/issues/3938
+// has been resolved this component can be removed
+export default styled(DataListCell)`
+  word-break: break-word;
 `;
-
-export default DataListCell;

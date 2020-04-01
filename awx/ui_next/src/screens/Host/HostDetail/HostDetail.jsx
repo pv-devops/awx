@@ -1,89 +1,57 @@
 import React, { useState } from 'react';
-import { Link, useHistory, useParams, useLocation } from 'react-router-dom';
+import { Link, useHistory } from 'react-router-dom';
 import { withI18n } from '@lingui/react';
 import { t } from '@lingui/macro';
 import { Host } from '@types';
-import { Button, Switch } from '@patternfly/react-core';
+import { Button } from '@patternfly/react-core';
 import { CardBody, CardActionsRow } from '@components/Card';
 import AlertModal from '@components/AlertModal';
 import ErrorDetail from '@components/ErrorDetail';
 import { DetailList, Detail, UserDateDetail } from '@components/DetailList';
 import { VariablesDetail } from '@components/CodeMirrorInput';
-import { Sparkline } from '@components/Sparkline';
+import Sparkline from '@components/Sparkline';
 import DeleteButton from '@components/DeleteButton';
 import { HostsAPI } from '@api';
+import HostToggle from '@components/HostToggle';
 
-function HostDetail({ host, i18n, onUpdateHost }) {
+function HostDetail({ i18n, host }) {
   const {
     created,
     description,
     id,
     modified,
     name,
-    enabled,
+    variables,
     summary_fields: {
       inventory,
       recent_jobs,
-      kind,
       created_by,
       modified_by,
       user_capabilities,
     },
   } = host;
 
-  const history = useHistory();
-  const { pathname } = useLocation();
-  const { id: inventoryId, hostId: inventoryHostId } = useParams();
   const [isLoading, setIsloading] = useState(false);
   const [deletionError, setDeletionError] = useState(false);
-  const [toggleLoading, setToggleLoading] = useState(false);
-  const [toggleError, setToggleError] = useState(false);
-
-  const recentPlaybookJobs = recent_jobs.map(job => ({ ...job, type: 'job' }));
-
-  const handleHostToggle = async () => {
-    setToggleLoading(true);
-    try {
-      const { data } = await HostsAPI.update(id, {
-        enabled: !enabled,
-      });
-      onUpdateHost(data);
-    } catch (err) {
-      setToggleError(err);
-    } finally {
-      setToggleLoading(false);
-    }
-  };
+  const history = useHistory();
 
   const handleHostDelete = async () => {
     setIsloading(true);
     try {
       await HostsAPI.destroy(id);
-      setIsloading(false);
-      history.push(`/inventories/inventory/${inventoryId}/hosts`);
+      history.push('/hosts');
     } catch (err) {
       setDeletionError(err);
+    } finally {
+      setIsloading(false);
     }
   };
 
-  if (toggleError && !toggleLoading) {
-    return (
-      <AlertModal
-        variant="danger"
-        title={i18n._(t`Error!`)}
-        isOpen={toggleError && !toggleLoading}
-        onClose={() => setToggleError(false)}
-      >
-        {i18n._(t`Failed to toggle host.`)}
-        <ErrorDetail error={toggleError} />
-      </AlertModal>
-    );
-  }
   if (!isLoading && deletionError) {
     return (
       <AlertModal
         isOpen={deletionError}
-        variant="danger"
+        variant="error"
         title={i18n._(t`Error!`)}
         onClose={() => setDeletionError(false)}
       >
@@ -92,78 +60,74 @@ function HostDetail({ host, i18n, onUpdateHost }) {
       </AlertModal>
     );
   }
+
+  const recentPlaybookJobs = recent_jobs.map(job => ({ ...job, type: 'job' }));
   return (
     <CardBody>
-      <Switch
-        css="padding-bottom: 40px"
-        id={`host-${id}-toggle`}
-        label={i18n._(t`On`)}
-        labelOff={i18n._(t`Off`)}
-        isChecked={enabled}
-        isDisabled={!user_capabilities.edit}
-        onChange={() => handleHostToggle()}
-        aria-label={i18n._(t`Toggle Host`)}
-      />
+      <HostToggle host={host} css="padding-bottom: 40px" />
       <DetailList gutter="sm">
-        <Detail label={i18n._(t`Name`)} value={name} />
+        <Detail label={i18n._(t`Name`)} value={name} dataCy="host-name" />
         <Detail
-          css="display: flex; flex: 1;"
-          value={<Sparkline jobs={recentPlaybookJobs} />}
           label={i18n._(t`Activity`)}
+          value={<Sparkline jobs={recentPlaybookJobs} />}
         />
         <Detail label={i18n._(t`Description`)} value={description} />
-        {inventory && (
-          <Detail
-            label={i18n._(t`Inventory`)}
-            value={
-              <Link
-                to={`/inventories/${
-                  kind === 'smart' ? 'smart_inventory' : 'inventory'
-                }/${inventoryId}/details`}
-              >
-                {inventory.name}
-              </Link>
-            }
-          />
-        )}
+        <Detail
+          label={i18n._(t`Inventory`)}
+          dataCy="host-inventory"
+          value={
+            <Link to={`/inventories/inventory/${inventory.id}/details`}>
+              {inventory.name}
+            </Link>
+          }
+        />
         <UserDateDetail
           date={created}
           label={i18n._(t`Created`)}
           user={created_by}
+          dataCy="host-created-by"
         />
         <UserDateDetail
+          date={modified}
           label={i18n._(t`Last Modified`)}
           user={modified_by}
-          date={modified}
+          dataCy="host-last-modified-by"
         />
         <VariablesDetail
-          value={host.variables}
-          rows={4}
           label={i18n._(t`Variables`)}
+          rows={4}
+          value={variables}
         />
       </DetailList>
       <CardActionsRow>
-        {user_capabilities && user_capabilities.edit && (
+        {user_capabilities?.edit && (
           <Button
             aria-label={i18n._(t`edit`)}
             component={Link}
-            to={
-              pathname.startsWith('/inventories')
-                ? `/inventories/inventory/${inventoryId}/hosts/${inventoryHostId}/edit`
-                : `/hosts/${id}/edit`
-            }
+            to={`/hosts/${id}/edit`}
           >
             {i18n._(t`Edit`)}
           </Button>
         )}
-        {user_capabilities && user_capabilities.delete && (
+        {user_capabilities?.delete && (
           <DeleteButton
             onConfirm={() => handleHostDelete()}
             modalTitle={i18n._(t`Delete Host`)}
-            name={host.name}
+            name={name}
           />
         )}
       </CardActionsRow>
+      {deletionError && (
+        <AlertModal
+          isOpen={deletionError}
+          variant="error"
+          title={i18n._(t`Error!`)}
+          onClose={() => setDeletionError(null)}
+        >
+          {i18n._(t`Failed to delete host.`)}
+          <ErrorDetail error={deletionError} />
+        </AlertModal>
+      )}
     </CardBody>
   );
 }

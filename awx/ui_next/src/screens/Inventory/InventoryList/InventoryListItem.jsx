@@ -3,19 +3,28 @@ import { string, bool, func } from 'prop-types';
 import { withI18n } from '@lingui/react';
 import {
   Button,
+  DataListAction as _DataListAction,
+  DataListCheck,
   DataListItem,
-  DataListItemRow,
   DataListItemCells,
+  DataListItemRow,
   Tooltip,
 } from '@patternfly/react-core';
+import DataListCell from '@components/DataListCell';
+
 import { t } from '@lingui/macro';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { PencilAltIcon } from '@patternfly/react-icons';
 
-import DataListCell from '@components/DataListCell';
-import DataListCheck from '@components/DataListCheck';
-import VerticalSeparator from '@components/VerticalSeparator';
 import { Inventory } from '@types';
+
+const DataListAction = styled(_DataListAction)`
+  align-items: center;
+  display: grid;
+  grid-gap: 16px;
+  grid-template-columns: 40px;
+`;
 
 class InventoryListItem extends React.Component {
   static propTypes = {
@@ -44,7 +53,6 @@ class InventoryListItem extends React.Component {
           <DataListItemCells
             dataListCells={[
               <DataListCell key="divider">
-                <VerticalSeparator />
                 <Link to={`${detailUrl}`}>
                   <b>{inventory.name}</b>
                 </Link>
@@ -54,25 +62,30 @@ class InventoryListItem extends React.Component {
                   ? i18n._(t`Smart Inventory`)
                   : i18n._(t`Inventory`)}
               </DataListCell>,
-              <DataListCell key="edit" alignRight isFilled={false}>
-                {inventory.summary_fields.user_capabilities.edit && (
-                  <Tooltip content={i18n._(t`Edit Inventory`)} position="top">
-                    <Button
-                      variant="plain"
-                      component={Link}
-                      to={`/inventories/${
-                        inventory.kind === 'smart'
-                          ? 'smart_inventory'
-                          : 'inventory'
-                      }/${inventory.id}/edit`}
-                    >
-                      <PencilAltIcon />
-                    </Button>
-                  </Tooltip>
-                )}
-              </DataListCell>,
             ]}
           />
+          <DataListAction
+            aria-label="actions"
+            aria-labelledby={labelId}
+            id={labelId}
+          >
+            {inventory.summary_fields.user_capabilities.edit ? (
+              <Tooltip content={i18n._(t`Edit Inventory`)} position="top">
+                <Button
+                  aria-label={i18n._(t`Edit Inventory`)}
+                  variant="plain"
+                  component={Link}
+                  to={`/inventories/${
+                    inventory.kind === 'smart' ? 'smart_inventory' : 'inventory'
+                  }/${inventory.id}/edit`}
+                >
+                  <PencilAltIcon />
+                </Button>
+              </Tooltip>
+            ) : (
+              ''
+            )}
+          </DataListAction>
         </DataListItemRow>
       </DataListItem>
     );

@@ -10,8 +10,8 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom';
+import { CardActions } from '@patternfly/react-core';
 import { CaretLeftIcon } from '@patternfly/react-icons';
-import { GroupsAPI } from '@api';
 import CardCloseButton from '@components/CardCloseButton';
 import RoutedTabs from '@components/RoutedTabs';
 import ContentError from '@components/ContentError';
@@ -19,6 +19,9 @@ import ContentLoading from '@components/ContentLoading';
 import { TabbedCardHeader } from '@components/Card';
 import InventoryGroupEdit from '../InventoryGroupEdit/InventoryGroupEdit';
 import InventoryGroupDetail from '../InventoryGroupDetail/InventoryGroupDetail';
+import InventoryGroupHosts from '../InventoryGroupHosts';
+
+import { GroupsAPI } from '@api';
 
 function InventoryGroup({ i18n, setBreadcrumb, inventory }) {
   const [inventoryGroup, setInventoryGroup] = useState(null);
@@ -56,68 +59,58 @@ function InventoryGroup({ i18n, setBreadcrumb, inventory }) {
     },
     {
       name: i18n._(t`Details`),
-      link: `/inventories/inventory/${inventory.id}/groups/${inventoryGroup &&
-        inventoryGroup.id}/details`,
+      link: `/inventories/inventory/${inventory.id}/groups/${inventoryGroup?.id}/details`,
       id: 0,
     },
     {
       name: i18n._(t`Related Groups`),
-      link: `/inventories/inventory/${inventory.id}/groups/${inventoryGroup &&
-        inventoryGroup.id}/nested_groups`,
+      link: `/inventories/inventory/${inventory.id}/groups/${inventoryGroup?.id}/nested_groups`,
       id: 1,
     },
     {
       name: i18n._(t`Hosts`),
-      link: `/inventories/inventory/${inventory.id}/groups/${inventoryGroup &&
-        inventoryGroup.id}/nested_hosts`,
+      link: `/inventories/inventory/${inventory.id}/groups/${inventoryGroup?.id}/nested_hosts`,
       id: 2,
     },
   ];
 
-  // In cases where a user manipulates the url such that they try to navigate to a
-  // Inventory Group that is not associated with the Inventory Id in the Url this
-  // Content Error is thrown. Inventory Groups have a 1:1 relationship to Inventories
-  // thus their Ids must corrolate.
-
   if (contentLoading) {
     return <ContentLoading />;
-  }
-
-  if (
-    inventoryGroup.summary_fields.inventory.id !== parseInt(inventoryId, 10)
-  ) {
-    return (
-      <ContentError>
-        {inventoryGroup && (
-          <Link to={`/inventories/inventory/${inventory.id}/groups`}>
-            {i18n._(t`View Inventory Groups`)}
-          </Link>
-        )}
-      </ContentError>
-    );
   }
 
   if (contentError) {
     return <ContentError error={contentError} />;
   }
 
-  let cardHeader = null;
+  // In cases where a user manipulates the url such that they try to navigate to a
+  // Inventory Group that is not associated with the Inventory Id in the Url this
+  // Content Error is thrown. Inventory Groups have a 1:1 relationship to Inventories
+  // thus their Ids must corrolate.
+
   if (
-    location.pathname.includes('groups/') &&
-    !location.pathname.endsWith('edit')
+    inventoryGroup?.summary_fields?.inventory?.id !== parseInt(inventoryId, 10)
   ) {
-    cardHeader = (
-      <TabbedCardHeader>
-        <RoutedTabs tabsArray={tabsArray} />
-        <CardCloseButton
-          linkTo={`/inventories/inventory/${inventory.id}/groups`}
-        />
-      </TabbedCardHeader>
+    return (
+      <ContentError isNotFound>
+        <Link to={`/inventories/inventory/${inventory.id}/groups`}>
+          {i18n._(t`View Inventory Groups`)}
+        </Link>
+      </ContentError>
     );
   }
+
   return (
     <>
-      {cardHeader}
+      {['add', 'edit'].some(name => location.pathname.includes(name)) ? null : (
+        <TabbedCardHeader>
+          <RoutedTabs tabsArray={tabsArray} />
+          <CardActions>
+            <CardCloseButton
+              linkTo={`/inventories/inventory/${inventory.id}/groups`}
+            />
+          </CardActions>
+        </TabbedCardHeader>
+      )}
       <Switch>
         <Redirect
           from="/inventories/inventory/:id/groups/:groupId"
@@ -134,10 +127,15 @@ function InventoryGroup({ i18n, setBreadcrumb, inventory }) {
           <Route
             key="details"
             path="/inventories/inventory/:id/groups/:groupId/details"
-            render={() => {
-              return <InventoryGroupDetail inventoryGroup={inventoryGroup} />;
-            }}
-          />,
+          >
+            <InventoryGroupDetail inventoryGroup={inventoryGroup} />
+          </Route>,
+          <Route
+            key="hosts"
+            path="/inventories/inventory/:id/groups/:groupId/nested_hosts"
+          >
+            <InventoryGroupHosts inventoryGroup={inventoryGroup} />
+          </Route>,
         ]}
         <Route
           key="not-found"

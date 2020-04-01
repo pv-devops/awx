@@ -12,7 +12,7 @@ describe('<WorkflowJobTemplateDetail/>', () => {
   const template = {
     id: 1,
     name: 'WFJT Template',
-    description: 'It is a wfjt template, yo!',
+    description: 'Yo, it is a wfjt template!',
     type: 'workflow_job_template',
     extra_vars: '1: 2',
     created: '2015-07-07T17:21:26.429745Z',
@@ -35,23 +35,24 @@ describe('<WorkflowJobTemplateDetail/>', () => {
         { id: 2, status: 'run' },
         { id: 3, status: 'run' },
       ],
-      webhook_credential: { id: '1', name: 'Credentaial', kind: 'machine' },
+      webhook_credential: { id: '1', name: 'Credential', kind: 'machine' },
       user_capabilities: { edit: true, delete: true },
     },
     webhook_service: 'Github',
   };
+
   beforeEach(async () => {
     history = createMemoryHistory({
       initialEntries: ['/templates/workflow_job_template/1/details'],
     });
     await act(async () => {
-      wrapper = await mountWithContexts(
+      wrapper = mountWithContexts(
         <Route
           path="/templates/workflow_job_template/:id/details"
           component={() => (
             <WorkflowJobTemplateDetail
               template={template}
-              webHookKey="Foo webhook key"
+              webhook_key="Foo webhook key"
               hasContentLoading={false}
               onSetContentLoading={() => {}}
             />
@@ -75,12 +76,15 @@ describe('<WorkflowJobTemplateDetail/>', () => {
       );
     });
   });
+
   afterEach(() => {
     wrapper.unmount();
   });
+
   test('renders successfully', () => {
     expect(wrapper.find(WorkflowJobTemplateDetail).length).toBe(1);
   });
+
   test('expect detail fields to render properly', () => {
     const renderedValues = [
       {
@@ -116,7 +120,7 @@ describe('<WorkflowJobTemplateDetail/>', () => {
       {
         element: 'Detail[label="Description"]',
         prop: 'value',
-        value: 'It is a wfjt template, yo!',
+        value: 'Yo, it is a wfjt template!',
       },
       {
         element: 'Detail[label="Job Type"]',
@@ -147,6 +151,7 @@ describe('<WorkflowJobTemplateDetail/>', () => {
 
     renderedValues.map(value => assertValue(value));
   });
+
   test('link out resource have the correct url', () => {
     const inventory = wrapper.find('Detail[label="Inventory"]').find('Link');
     const organization = wrapper

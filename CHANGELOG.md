@@ -2,6 +2,43 @@
 
 This is a list of high-level changes for each release of AWX. A full list of commits can be found at `https://github.com/ansible/awx/releases/tag/<version>`.
 
+## 10.0.0 (Mar 30, 2020)
+- As of AWX 10.0.0, the official AWX CLI no longer supports Python 2 (it requires at least Python 3.6) (https://github.com/ansible/awx/pull/6327)
+- AWX no longer relies on RabbitMQ; Redis is added as a new dependency (https://github.com/ansible/awx/issues/5443)
+- Altered AWX's event tables to allow more than ~2 billion total events (https://github.com/ansible/awx/issues/6010)
+- Improved the performance (time to execute, and memory consumption) of the periodic job cleanup system job (https://github.com/ansible/awx/pull/6166)
+- Updated Job Templates so they now have an explicit Organization field (it is no longer inferred from the associated Project) (https://github.com/ansible/awx/issues/3903)
+- Updated social-auth-core to address an upcoming GitHub API deprecation (https://github.com/ansible/awx/issues/5970)
+- Updated to ansible-runner 1.4.6 to address various bugs.
+- Updated Django to address CVE-2020-9402
+- Updated pyyaml version to address CVE-2017-18342
+- Fixed a bug which prevented the new `scm_branch` field from being used in custom notification templates (https://github.com/ansible/awx/issues/6258)
+- Fixed a race condition that sometimes causes success/failure notifications to include an incomplete list of hosts (https://github.com/ansible/awx/pull/6290)
+- Fixed a bug that can cause certain setting pages to lose unsaved form edits when a playbook is launched (https://github.com/ansible/awx/issues/5265)
+- Fixed a bug that can prevent the "Use TLS/SSL" field from properly saving when editing email notification templates (https://github.com/ansible/awx/issues/6383)
+- Fixed a race condition that sometimes broke event/stdout processing for jobs launched in container groups (https://github.com/ansible/awx/issues/6280)
+
+## 9.3.0 (Mar 12, 2020)
+- Added the ability to specify an OAuth2 token description in the AWX CLI (https://github.com/ansible/awx/issues/6122)
+- Added support for K8S service account annotations to the installer (https://github.com/ansible/awx/pull/6007)
+- Added support for K8S imagePullSecrets to the installer (https://github.com/ansible/awx/pull/5989)
+- Launching jobs (and workflows) using the --monitor flag in the AWX CLI now returns a non-zero exit code on job failure (https://github.com/ansible/awx/issues/5920)
+- Improved UI performance for various job views when many simultaneous users are logged into AWX (https://github.com/ansible/awx/issues/5883)
+- Updated to the latest version of Django to address a few open CVEs (https://github.com/ansible/awx/pull/6080)
+- Fixed a critical bug which can cause AWX to hang and stop launching playbooks after a periodic of time (https://github.com/ansible/awx/issues/5617)
+- Fixed a bug which caused delays in project update stdout for certain large SCM clones (as of Ansible 2.9+) (https://github.com/ansible/awx/pull/6254)
+- Fixed a bug which caused certain smart inventory filters to mistakenly return duplicate hosts (https://github.com/ansible/awx/pull/5972)
+- Fixed an unclear server error when creating smart inventories with the AWX collection (https://github.com/ansible/awx/issues/6250)
+- Fixed a bug that broke Grafana notification support (https://github.com/ansible/awx/issues/6137)
+- Fixed a UI bug which prevent users with read access to an organization from editing credentials for that organization (https://github.com/ansible/awx/pull/6241)
+- Fixed a bug which prevent workflow approval records from recording a `started` and `elapsed` date (https://github.com/ansible/awx/issues/6202)
+- Fixed a bug which caused workflow nodes to have a confusing option for `verbosity` (https://github.com/ansible/awx/issues/6196)
+- Fixed an RBAC bug which prevented projects and inventory schedules from being created by certain users in certain contexts (https://github.com/ansible/awx/issues/5717)
+- Fixed a bug that caused `role_path` in a project's config to not be respected due to an error processing `/etc/ansible/ansible.cfg` (https://github.com/ansible/awx/pull/6038)
+- Fixed a bug that broke inventory updates for installs with custom home directories for the awx user (https://github.com/ansible/awx/pull/6152)
+- Fixed a bug that broke fact data collection when AWX encounters invalid/unexpected fact data (https://github.com/ansible/awx/issues/5935)
+
+
 ## 9.2.0 (Feb 12, 2020)
 - Added the ability to configure the convergence behavior of workflow nodes https://github.com/ansible/awx/issues/3054
 - AWX now allows for a configurable global limit for fork count (per-job run).  The default maximum is 200. https://github.com/ansible/awx/pull/5604

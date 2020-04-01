@@ -101,14 +101,16 @@ class ActivityStreamMiddleware(threading.local, MiddlewareMixin):
             post_save.disconnect(dispatch_uid=self.disp_uid)
 
         for instance in ActivityStream.objects.filter(id__in=self.instance_ids):
-            if drf_user and drf_user.id:
+            if drf_user and drf_user.id:       
+                from awx.api.serializers import ActivityStreamSerializer
+                summary_fields = ActivityStreamSerializer(instance).get_summary_fields(instance)
                 instance.actor = drf_user
                 try:
                     instance.save(update_fields=['actor'])
                     analytics_logger.info('Activity Stream update entry for %s' % str(instance.object1),
                                           extra=dict(changes=instance.changes, relationship=instance.object_relationship_type,
                                           actor=drf_user.username, operation=instance.operation,
-                                          object1=instance.object1, object2=instance.object2))
+                                          object1=instance.object1, object2=instance.object2, summary_fields=summary_fields))
                 except IntegrityError:
                     logger.debug("Integrity Error saving Activity Stream instance for id : " + str(instance.id))
             # else:
@@ -192,21 +194,41 @@ class URLModificationMiddleware(MiddlewareMixin):
         )
         super().__init__(get_response)
 
-    def _named_url_to_pk(self, node, named_url):
-        kwargs = {}
-        if not node.populate_named_url_query_kwargs(kwargs, named_url):
-            return named_url
-        return str(get_object_or_404(node.model, **kwargs).pk)
+    @staticmethod
+    def _hijack_for_old_jt_name(node, kwargs, named_url):
+        try:
+            int(named_url)
+            return False
+        except ValueError:
+            pass
+        JobTemplate = node.model
+        name = urllib.parse.unquote(named_url)
+        return JobTemplate.objects.filter(name=name).order_by('organization__created').first()
 
-    def _convert_named_url(self, url_path):
+    @classmethod
+    def _named_url_to_pk(cls, node, resource, named_url):
+        kwargs = {}
+        if node.populate_named_url_query_kwargs(kwargs, named_url):
+            return str(get_object_or_404(node.model, **kwargs).pk)
+        if resource == 'job_templates' and '++' not in named_url:
+            # special case for deprecated job template case
+            # will not raise a 404 on its own
+            jt = cls._hijack_for_old_jt_name(node, kwargs, named_url)
+            if jt:
+                return str(jt.pk)
+        return named_url
+
+    @classmethod
+    def _convert_named_url(cls, url_path):
         url_units = url_path.split('/')
         # If the identifier is an empty string, it is always invalid.
         if len(url_units) < 6 or url_units[1] != 'api' or url_units[2] not in ['v2'] or not url_units[4]:
             return url_path
         resource = url_units[3]
         if resource in settings.NAMED_URL_MAPPINGS:
-            url_units[4] = self._named_url_to_pk(settings.NAMED_URL_GRAPH[settings.NAMED_URL_MAPPINGS[resource]],
-                                                 url_units[4])
+            url_units[4] = cls._named_url_to_pk(
+                settings.NAMED_URL_GRAPH[settings.NAMED_URL_MAPPINGS[resource]],
+                resource, url_units[4])
         return '/'.join(url_units)
 
     def process_request(self, request):

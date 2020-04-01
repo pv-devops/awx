@@ -20,6 +20,7 @@ from rest_framework.fields import JSONField as DRFJSONField
 from rest_framework.request import clone_request
 
 # AWX
+from awx.api.fields import ChoiceNullField
 from awx.main.fields import JSONField, ImplicitRoleField
 from awx.main.models import InventorySource, NotificationTemplate
 from awx.main.scheduler.kubernetes import PodManager
@@ -59,7 +60,8 @@ class Metadata(metadata.SimpleMetadata):
                 'type': _('Data type for this {}.'),
                 'url': _('URL for this {}.'),
                 'related': _('Data structure with URLs of related resources.'),
-                'summary_fields': _('Data structure with name/description for related resources.'),
+                'summary_fields': _('Data structure with name/description for related resources.  '
+                                    'The output for some objects may be limited for performance reasons.'),
                 'created': _('Timestamp when this {} was created.'),
                 'modified': _('Timestamp when this {} was last modified.'),
             }
@@ -96,7 +98,15 @@ class Metadata(metadata.SimpleMetadata):
             field_info['children'] = self.get_serializer_info(field)
 
         if not isinstance(field, (RelatedField, ManyRelatedField)) and hasattr(field, 'choices'):
-            field_info['choices'] = [(choice_value, choice_name) for choice_value, choice_name in field.choices.items()]
+            choices = [
+                (choice_value, choice_name) for choice_value, choice_name in field.choices.items()
+            ]
+            if not any(choice in ('', None) for choice, _ in choices):
+                if field.allow_blank:
+                    choices = [("", "---------")] + choices
+                if field.allow_null and not isinstance(field, ChoiceNullField):
+                    choices = [(None, "---------")] + choices
+            field_info['choices'] = choices
 
         # Indicate if a field is write-only.
         if getattr(field, 'write_only', False):

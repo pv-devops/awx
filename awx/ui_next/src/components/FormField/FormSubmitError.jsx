@@ -15,6 +15,10 @@ function FormSubmitError({ error }) {
       setErrors(errorMessages);
       if (errorMessages.__all__) {
         setErrorMessage(errorMessages.__all__);
+      } else if (errorMessages.detail) {
+        setErrorMessage(errorMessages.detail);
+      } else if (errorMessages.resources_needed_to_start) {
+        setErrorMessage(errorMessages.resources_needed_to_start);
       } else {
         setErrorMessage(null);
       }
@@ -29,7 +33,17 @@ function FormSubmitError({ error }) {
     return null;
   }
 
-  return <Alert variant="danger" isInline title={errorMessage} />;
+  return (
+    <Alert
+      variant="danger"
+      isInline
+      title={
+        Array.isArray(errorMessage)
+          ? errorMessage.map(msg => <div key={msg}>{msg}</div>)
+          : errorMessage
+      }
+    />
+  );
 }
 
 export default FormSubmitError;

@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { mountWithContexts } from '@testUtils/enzymeHelpers';
-
+import { createMemoryHistory } from 'history';
 import TemplateListItem from './TemplateListItem';
 
 describe('<TemplateListItem />', () => {
@@ -160,5 +160,30 @@ describe('<TemplateListItem />', () => {
       />
     );
     expect(wrapper.find('ExclamationTriangleIcon').exists()).toBe(false);
+  });
+  test('clicking on template from templates list navigates properly', () => {
+    const history = createMemoryHistory({
+      initialEntries: ['/templates'],
+    });
+    const wrapper = mountWithContexts(
+      <TemplateListItem
+        isSelected={false}
+        detailUrl="/templates/job_template/1/details"
+        template={{
+          id: 1,
+          name: 'Template 1',
+          summary_fields: {
+            user_capabilities: {
+              edit: false,
+            },
+          },
+        }}
+      />,
+      { context: { router: { history } } }
+    );
+    wrapper.find('Link').simulate('click', { button: 0 });
+    expect(history.location.pathname).toEqual(
+      '/templates/job_template/1/details'
+    );
   });
 });

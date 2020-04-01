@@ -265,28 +265,6 @@ migrate:
 dbchange:
 	$(MANAGEMENT_COMMAND) makemigrations
 
-server_noattach:
-	tmux new-session -d -s awx 'exec make uwsgi'
-	tmux rename-window 'AWX'
-	tmux select-window -t awx:0
-	tmux split-window -v 'exec make dispatcher'
-	tmux new-window 'exec make daphne'
-	tmux select-window -t awx:1
-	tmux rename-window 'WebSockets'
-	tmux split-window -h 'exec make runworker'
-	tmux split-window -v 'exec make nginx'
-	tmux new-window 'exec make receiver'
-	tmux select-window -t awx:2
-	tmux rename-window 'Extra Services'
-	tmux select-window -t awx:0
-
-server: server_noattach
-	tmux -2 attach-session -t awx
-
-# Use with iterm2's native tmux protocol support
-servercc: server_noattach
-	tmux -2 -CC attach-session -t awx
-
 supervisor:
 	@if [ "$(VENV_BASE)" ]; then \
 		. $(VENV_BASE)/awx/bin/activate; \
@@ -311,18 +289,11 @@ daphne:
 	fi; \
 	daphne -b 127.0.0.1 -p 8051 awx.asgi:channel_layer
 
-runworker:
+wsbroadcast:
 	@if [ "$(VENV_BASE)" ]; then \
 		. $(VENV_BASE)/awx/bin/activate; \
 	fi; \
-	$(PYTHON) manage.py runworker --only-channels websocket.*
-
-# Run the built-in development webserver (by default on http://localhost:8013).
-runserver:
-	@if [ "$(VENV_BASE)" ]; then \
-		. $(VENV_BASE)/awx/bin/activate; \
-	fi; \
-	$(PYTHON) manage.py runserver
+	$(PYTHON) manage.py run_wsbroadcast
 
 # Run to start the background task dispatcher for development.
 dispatcher:
@@ -400,34 +371,42 @@ prepare_collection_venv:
 	$(VENV_BASE)/awx/bin/pip install --target=$(COLLECTION_VENV) git+https://github.com/ansible/tower-cli.git
 
 COLLECTION_TEST_DIRS ?= awx_collection/test/awx
+COLLECTION_TEST_TARGET ?=
 COLLECTION_PACKAGE ?= awx
 COLLECTION_NAMESPACE ?= awx
+COLLECTION_INSTALL = ~/.ansible/collections/ansible_collections/$(COLLECTION_NAMESPACE)/$(COLLECTION_PACKAGE)
 
 test_collection:
 	@if [ "$(VENV_BASE)" ]; then \
 		. $(VENV_BASE)/awx/bin/activate; \
 	fi; \
-	PYTHONPATH=$(COLLECTION_VENV):/awx_devel/awx_collection:$PYTHONPATH:/usr/lib/python3.6/site-packages py.test $(COLLECTION_TEST_DIRS)
+	PYTHONPATH=$(COLLECTION_VENV):$PYTHONPATH:/usr/lib/python3.6/site-packages py.test $(COLLECTION_TEST_DIRS)
 
 flake8_collection:
 	flake8 awx_collection/  # Different settings, in main exclude list
 
 test_collection_all: prepare_collection_venv test_collection flake8_collection
 
-test_collection_sanity:
-	rm -rf sanity
-	mkdir -p sanity/ansible_collections/awx
-	cp -Ra awx_collection sanity/ansible_collections/awx/awx  # symlinks do not work
-	cd sanity/ansible_collections/awx/awx && git init && git add . # requires both this file structure and a git repo, so there you go
-	cd sanity/ansible_collections/awx/awx && ansible-test sanity
+# WARNING: symlinking a collection is fundamentally unstable
+# this is for rapid development iteration with playbooks, do not use with other test targets
+symlink_collection:
+	rm -rf $(COLLECTION_INSTALL)
+	mkdir -p ~/.ansible/collections/ansible_collections/$(COLLECTION_NAMESPACE)  # in case it does not exist
+	ln -s $(shell pwd)/awx_collection $(COLLECTION_INSTALL)
 
 build_collection:
 	ansible-playbook -i localhost, awx_collection/template_galaxy.yml -e collection_package=$(COLLECTION_PACKAGE) -e collection_namespace=$(COLLECTION_NAMESPACE) -e collection_version=$(VERSION)
 	ansible-galaxy collection build awx_collection --force --output-path=awx_collection
 
 install_collection: build_collection
-	rm -rf ~/.ansible/collections/ansible_collections/awx/awx
-	ansible-galaxy collection install awx_collection/awx-awx-$(VERSION).tar.gz
+	rm -rf $(COLLECTION_INSTALL)
+	ansible-galaxy collection install awx_collection/$(COLLECTION_NAMESPACE)-$(COLLECTION_PACKAGE)-$(VERSION).tar.gz
+
+test_collection_sanity: install_collection
+	cd $(COLLECTION_INSTALL) && ansible-test sanity
+
+test_collection_integration: install_collection
+	cd $(COLLECTION_INSTALL) && ansible-test integration $(COLLECTION_TEST_TARGET)
 
 test_unit:
 	@if [ "$(VENV_BASE)" ]; then \
